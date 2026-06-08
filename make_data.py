@@ -309,6 +309,90 @@ io_mask = df["answer"].astype(str).str.contains("international order", case=Fals
 conf_cols = ["Threat", "Demand", "Urge", "Request", "Representations",
              "Active threat", "China attacked"]
 
+# Biographical data — static, curated
+SP_BIO = {
+    "Kong Quan": {
+        "era": "Hu Jintao",
+        "post": "Ambassador to France (2009–14), then to the EU",
+        "note": "Career European specialist. Left the podium for a major ambassadorial posting in Paris, then Brussels.",
+    },
+    "Zhang Qiyue": {
+        "era": "Hu Jintao",
+        "post": "Ambassador to Switzerland (later)",
+        "note": "One of the first prominent female MFA spokespeople of the modern era. Active during a period of assertive diplomacy over Taiwan and Tibet.",
+    },
+    "Liu Jianchao": {
+        "era": "Hu Jintao",
+        "post": "Head, CPC International Liaison Dept",
+        "note": "One of the highest post-podium careers. The International Liaison Department handles party-to-party diplomacy — a powerful behind-the-scenes role.",
+    },
+    "Qin Gang": {
+        "era": "Xi Jinping",
+        "post": "Foreign Minister Dec 2022 – Jul 2023 (then dismissed)",
+        "note": "The only MFA spokesperson to become Foreign Minister. Promoted rapidly by Xi, then abruptly removed in July 2023 with no public explanation — one of the most prominent disappearances in recent Chinese politics.",
+    },
+    "Jiang Yu": {
+        "era": "Hu Jintao",
+        "post": "Senior MFA role",
+        "note": "Female spokesperson active across the 2008 Olympics, Tibet unrest, and Xinjiang coverage. Served during a high-pressure period for China's international image.",
+    },
+    "Ma Zhaoxu": {
+        "era": "Hu Jintao / Xi Jinping",
+        "post": "Ambassador to the United States (2022–)",
+        "note": "The highest career arc of any former spokesperson. Served as Ambassador to UN Geneva (2015–22) before becoming China's top envoy in Washington at a critical juncture in China–US relations.",
+    },
+    "Liu Weimin": {
+        "era": "Hu Jintao / Xi Jinping",
+        "post": "Director, MFA Information Dept",
+        "note": "Brief stint on the podium. Remained within the Information Department, which oversees press conferences and public diplomacy.",
+    },
+    "Hong Lei": {
+        "era": "Hu Jintao / Xi Jinping",
+        "post": "Delegate to UNESCO (later)",
+        "note": "One of the longest-serving spokespeople, active across the Hu–Xi transition. Notable for fielding some of the most contentious questions of the period (South China Sea arbitration, North Korea sanctions).",
+    },
+    "Geng Shuang": {
+        "era": "Xi Jinping",
+        "post": "Deputy Permanent Representative to UN (2020–)",
+        "note": "After the podium, moved to New York as China's Deputy Ambassador at the UN Security Council — a high-profile posting during peak China–US confrontation over COVID-19 and Ukraine.",
+    },
+    "Lu Kang": {
+        "era": "Xi Jinping",
+        "post": "Ambassador",
+        "note": "Career diplomat who moved to an ambassadorial posting after the spokesperson role. Known for a relatively measured tone compared to the wolf-warrior era that followed.",
+    },
+    "Hua Chunying": {
+        "era": "Xi Jinping",
+        "post": "Vice Foreign Minister (2022–)",
+        "note": "China's longest-serving spokesperson, with intermittent returns to the podium. Known for assertive but calibrated rhetoric. Became a Vice Foreign Minister while continuing spokesperson duties — unusually retaining public visibility at that rank.",
+    },
+    "Zhao Lijian": {
+        "era": "Xi Jinping",
+        "post": "Reassigned Jan 2023 (MFA Oceanic Affairs)",
+        "note": "The archetypal 'wolf warrior' diplomat. Rose to global prominence on Twitter before joining the podium in 2019. Reassigned to a lower-profile bureau in January 2023, widely read as Beijing moderating its confrontational public diplomacy style.",
+    },
+    "Wang Wenbin": {
+        "era": "Xi Jinping",
+        "post": "Active (2020–)",
+        "note": "Current spokesperson alongside Mao Ning and Lin Jian. Adopted a notably lower-key tone than Zhao Lijian — part of a post-wolf-warrior adjustment in style.",
+    },
+    "Mao Ning": {
+        "era": "Xi Jinping",
+        "post": "Active (2022–)",
+        "note": "Current spokesperson. One of three women to hold the role in the modern MFA era. Has fielded some of the most intense questioning of recent years on Taiwan, Ukraine, and Gaza.",
+    },
+    "Lin Jian": {
+        "era": "Xi Jinping",
+        "post": "Active (2023–)",
+        "note": "Joined the spokesperson team in 2023, part of an expanded rotation as press conference volume increased.",
+    },
+    "Guo Jiakun": {
+        "era": "Xi Jinping",
+        "post": "Active (2024–)",
+        "note": "The most recently appointed spokesperson, joining the rotation in 2024.",
+    },
+}
+
 cards = []
 for sp in TOP_SP:
     rows = df[df["spokesperson"] == sp]
@@ -319,6 +403,7 @@ for sp in TOP_SP:
     yrs = rows["year_clean"].dropna()
     year_min = int(yrs.min()) if len(yrs) else None
     year_max = int(yrs.max()) if len(yrs) else None
+    bio = SP_BIO.get(sp, {})
     cards.append({
         "name": sp,
         "color": SP_COLOR.get(sp, "#999"),
@@ -328,6 +413,9 @@ for sp in TOP_SP:
         "conf_rate": round(float(n_conf / n_total * 100), 1) if n_total else 0,
         "year_min": year_min,
         "year_max": year_max,
+        "era": bio.get("era", ""),
+        "post": bio.get("post", ""),
+        "note": bio.get("note", ""),
     })
 
 with open(os.path.join(OUT_DIR, "spokesperson_cards.json"), "w") as f:
@@ -554,6 +642,59 @@ with open(os.path.join(OUT_DIR, "articles.json"), "w") as f:
     json.dump(articles, f)
 size_mb = os.path.getsize(os.path.join(OUT_DIR, "articles.json")) / 1e6
 print(f"  wrote articles.json ({len(articles):,} records, {size_mb:.1f} MB)")
+
+# ── E2: Quarterly IO breakdown ────────────────────────────────────────────────
+print("Building quarterly_io …")
+
+io_df = df[io_mask].copy()
+io_df["date_p"] = pd.to_datetime(io_df["date"], errors="coerce")
+io_df["quarter"] = io_df["date_p"].dt.to_period("Q").astype(str)
+io_df["vader"] = pd.to_numeric(io_df.get("vader_answer", pd.Series(dtype=float)), errors="coerce")
+
+# Exclusive confrontation assignment: highest-severity category wins
+CONF_PRIORITY = ["Active threat", "Threat", "Demand", "Urge", "Representations", "China attacked"]
+
+def assign_framing(row):
+    for col in CONF_PRIORITY:
+        if col in row and pd.notna(row[col]):
+            return col
+    return "IO only"
+
+io_df["framing"] = io_df.apply(assign_framing, axis=1)
+
+# Aggregate by quarter
+all_quarters = sorted(io_df["quarter"].dropna().unique())
+FRAMINGS = ["IO only", "Urge", "Representations", "Demand", "Threat", "Active threat"]
+
+quarterly_io = []
+for q in all_quarters:
+    qrows = io_df[io_df["quarter"] == q]
+    # Total IO exchanges in this quarter
+    n_io = len(qrows)
+    # Total MFA exchanges in this quarter (for rate)
+    qdate = pd.Period(q, "Q")
+    all_q = df[
+        (pd.to_datetime(df["date"], errors="coerce").dt.to_period("Q").astype(str) == q)
+    ]
+    n_total = len(all_q)
+    # Sentiment (mean VADER of IO rows)
+    vader_mean = float(qrows["vader"].mean()) if qrows["vader"].notna().any() else None
+    # Framing breakdown
+    framing_counts = qrows["framing"].value_counts().to_dict()
+    entry = {
+        "quarter": q,
+        "n_io": n_io,
+        "n_total": n_total,
+        "io_rate": round(n_io / n_total * 100, 2) if n_total else 0,
+        "sentiment": round(vader_mean, 4) if vader_mean is not None else None,
+    }
+    for f in FRAMINGS:
+        entry[f.lower().replace(" ", "_")] = framing_counts.get(f, 0)
+    quarterly_io.append(entry)
+
+with open(os.path.join(OUT_DIR, "quarterly_io.json"), "w") as f:
+    json.dump(quarterly_io, f)
+print(f"  wrote quarterly_io.json ({len(quarterly_io)} quarters)")
 
 # ── F: Threats by year ────────────────────────────────────────────────────────
 print("Building threats_by_year …")

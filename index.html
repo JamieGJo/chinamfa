@@ -135,6 +135,9 @@
     .sp-card .sp-stat { display: flex; justify-content: space-between; color: #444; padding: 0.15rem 0; border-bottom: 1px solid #f0ebe4; }
     .sp-card .sp-stat:last-child { border-bottom: none; }
     .sp-card .sp-val { font-weight: 600; color: #1a1a2e; }
+    .sp-card .sp-era { font-size: 0.65rem; font-weight: 600; background: var(--sp-color, #888); color: #fff; border-radius: 3px; padding: 0.1rem 0.4rem; vertical-align: middle; margin-left: 0.25rem; }
+    .sp-card .sp-post { font-size: 0.75rem; color: #555; margin-bottom: 0.45rem; font-style: italic; }
+    .sp-card .sp-note { font-size: 0.73rem; color: #888; margin-top: 0.45rem; line-height: 1.4; border-top: 1px solid #f0ebe4; padding-top: 0.35rem; }
 
     /* ── Two-column chart layout ── */
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem; }
@@ -471,11 +474,19 @@
 <section id="trends">
   <div class="container">
     <div class="section-label">Trend · 趋势</div>
-    <h2>Monthly mentions of "international order"
-      <span class="zh">每月提及"国际秩序"的频次</span>
+    <h2>Mentions of "international order" by quarter
+      <span class="zh">按季度统计的"国际秩序"提及频次</span>
     </h2>
-    <p style="font-size:0.9rem;color:#555;">How often did MFA spokespeople mention the international order in press conference answers? Peaks often align with major diplomatic events. Bar colour indicates the average VADER sentiment score across answers that month, calibrated to the actual distribution: <span style="color:#2166ac;font-weight:600;">blue</span> = positive framing (top half), <span style="color:#e0a060;font-weight:600;">amber</span> = restrained or mixed (second quartile), <span style="color:#d73027;font-weight:600;">red</span> = negative or critical framing (bottom quarter). December 2025 (n=29, near-neutral sentiment) illustrates how the 2025 Trump-II spike produced more defensive language than earlier peaks.</p>
-    <div class="chart-wrap">
+    <p style="font-size:0.9rem;color:#555;">How often do MFA spokespeople mention the international order — and in what context? Bars are stacked by framing: most mentions are in diplomatic or explanatory contexts (grey); coloured segments mark exchanges that were also coded for confrontation. Select a framing below to isolate it. The 2025 surge is the largest on record, with sentiment turning sharply negative (quarterly average −0.38 in Q4 2025) as IO language shifted from affirmative to defensive.</p>
+    <div class="threats-toggles" id="io-toggles">
+      <button class="ttog-btn" data-io="all" style="--tc:#555">All</button>
+      <button class="ttog-btn muted" data-io="io_only" style="--tc:#aaa">IO only</button>
+      <button class="ttog-btn muted" data-io="urge" style="--tc:#e9c46a">Urge</button>
+      <button class="ttog-btn muted" data-io="representations" style="--tc:#457b9d">Representations</button>
+      <button class="ttog-btn muted" data-io="demand" style="--tc:#f4a261">Demand</button>
+      <button class="ttog-btn muted" data-io="threat" style="--tc:#c0291a">Threat</button>
+    </div>
+    <div class="chart-wrap" style="height:300px;">
       <canvas id="trend-chart"></canvas>
     </div>
   </div>
@@ -617,6 +628,7 @@
 Promise.all([
   fetch('data/country_counts.json').then(r => r.json()),
   fetch('data/monthly_io.json').then(r => r.json()),
+  fetch('data/quarterly_io.json').then(r => r.json()),
   fetch('data/threats_by_year.json').then(r => r.json()),
   fetch('data/threats_by_country.json').then(r => r.json()),
   fetch('data/spokesperson_by_year.json').then(r => r.json()),
@@ -624,11 +636,11 @@ Promise.all([
   fetch('data/press_breakdown.json').then(r => r.json()),
   fetch('data/topics.json').then(r => r.json()),
   fetch('data/articles.json').then(r => r.json()),
-]).then(([countryData, monthlyData, threatsData, threatsByCountry,
+]).then(([countryData, monthlyData, quarterlyData, threatsData, threatsByCountry,
           spByYear, spCards, pressData, topicsData, articlesData]) => {
   initHeadlines(countryData, monthlyData);
   initMap(countryData);
-  initChart(monthlyData);
+  initChart(quarterlyData);
   initThreatsChart(threatsData);
   initThreatsMap(threatsByCountry);
   initSpChart(spByYear);
@@ -799,69 +811,103 @@ function onEachFeature(feature, layer) {
   });
 }
 
-// ── Chart ────────────────────────────────────────────────────────────────
+// ── IO Quarterly Chart ────────────────────────────────────────────────────
 
-function initChart(monthly) {
+function initChart(quarterly) {
   const ctx = document.getElementById('trend-chart').getContext('2d');
 
-  new Chart(ctx, {
+  const IO_SERIES = [
+    { key: 'io_only',        label: 'IO only (no confrontation)', color: '#b0a898' },
+    { key: 'urge',           label: 'IO + Urge',                  color: '#e9c46a' },
+    { key: 'representations',label: 'IO + Representations',       color: '#457b9d' },
+    { key: 'demand',         label: 'IO + Demand',                color: '#f4a261' },
+    { key: 'threat',         label: 'IO + Threat',                color: '#c0291a' },
+  ];
+
+  const labels = quarterly.map(d => d.quarter);
+
+  const datasets = IO_SERIES.map(s => ({
+    label: s.label,
+    data: quarterly.map(d => d[s.key] || 0),
+    backgroundColor: s.color,
+    stack: 'io',
+    borderWidth: 0,
+  }));
+
+  const chart = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels: monthly.map(d => d.month),
-      datasets: [{
-        label: 'Mentions of "international order" (国际秩序)',
-        data: monthly.map(d => d.n_io),
-        backgroundColor: monthly.map(d => {
-          // Colour by sentiment using distribution-based quartile thresholds:
-          // p75=0.968, p50=0.889, p25=0.677 (computed from actual data)
-          const s = d.sentiment;
-          if (s === null) return '#ccc';
-          if (s > 0.968) return '#2166ac';   // top quartile: positive
-          if (s > 0.889) return '#74add1';   // 2nd quartile: broadly positive
-          if (s > 0.677) return '#e0a060';   // 3rd quartile: mixed/restrained
-          return '#d73027';                   // bottom quartile: negative/critical
-        }),
-        borderWidth: 0,
-      }]
-    },
+    data: { labels, datasets },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
         tooltip: {
+          mode: 'index',
+          filter: item => !item.dataset.hidden,
           callbacks: {
             title: ctx => ctx[0].label,
-            label: ctx => {
-              const d = monthly[ctx.dataIndex];
+            label: ctx => `${ctx.dataset.label}: ${ctx.raw}`,
+            afterBody: ctx => {
+              const d = quarterly[ctx[0].dataIndex];
               const sent = d.sentiment !== null ? d.sentiment.toFixed(2) : 'n/a';
-              return [`Mentions: ${d.n_io}`, `Of ${d.n_total} total answers (${d.io_rate.toFixed(1)}%)`, `Sentiment: ${sent}`];
+              return [`Total IO: ${d.n_io}  |  Rate: ${d.io_rate.toFixed(1)}%  |  Sentiment: ${sent}`];
             }
           }
         }
       },
       scales: {
         x: {
+          stacked: true,
+          grid: { display: false },
           ticks: {
-            maxTicksLimit: 12,
             font: { size: 10 },
             callback: (val, idx) => {
-              const lbl = monthly[idx].month;
-              return lbl.endsWith('-01') ? lbl.slice(0, 4) : '';
+              const q = quarterly[idx].quarter;
+              return q.endsWith('Q1') ? q.slice(0, 4) : '';
             }
-          },
-          grid: { display: false }
+          }
         },
         y: {
+          stacked: true,
           beginAtZero: true,
           ticks: { font: { size: 11 } },
-          title: { display: true, text: 'Monthly mentions', font: { size: 11 } }
+          title: { display: true, text: 'IO mentions per quarter', font: { size: 11 } }
         }
       }
     }
   });
 
-  // (sentiment note is in the section intro text)
+  // Solo-select toggles (same pattern as threats chart)
+  let soloKey = null;
+  const KEY_ORDER = IO_SERIES.map(s => s.key);
+
+  function applyIOView() {
+    chart.data.datasets.forEach((ds, i) => {
+      ds.hidden = soloKey !== null && KEY_ORDER[i] !== soloKey;
+    });
+    chart.update('none');
+    document.querySelectorAll('#io-toggles .ttog-btn').forEach(btn => {
+      const k = btn.dataset.io;
+      if (k === 'all') {
+        btn.classList.toggle('muted', soloKey !== null);
+      } else {
+        btn.classList.toggle('muted', soloKey !== null && k !== soloKey);
+      }
+    });
+  }
+
+  document.querySelectorAll('#io-toggles .ttog-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const k = btn.dataset.io;
+      if (k === 'all') {
+        soloKey = null;
+      } else {
+        soloKey = (soloKey === k) ? null : k;
+      }
+      applyIOView();
+    });
+  });
 }
 
 // ── Threats Map ──────────────────────────────────────────────────────────
@@ -1126,12 +1172,17 @@ function initSpCards(cards) {
     const div = document.createElement('div');
     div.className = 'sp-card';
     div.style.setProperty('--sp-color', c.color);
+    const eraBadge = c.era ? `<span class="sp-era">${c.era}</span>` : '';
+    const postLine = c.post ? `<div class="sp-post">${c.post}</div>` : '';
+    const noteLine = c.note ? `<div class="sp-note">${c.note}</div>` : '';
     div.innerHTML = `
-      <div class="sp-name">${c.name}</div>
+      <div class="sp-name">${c.name} ${eraBadge}</div>
       <div class="sp-years">${c.year_min || '?'} – ${c.year_max || '?'}</div>
+      ${postLine}
       <div class="sp-stat"><span>Exchanges</span><span class="sp-val">${c.n_total.toLocaleString()}</span></div>
       <div class="sp-stat"><span>IO mentions</span><span class="sp-val">${c.n_io}</span></div>
       <div class="sp-stat"><span>Confrontation rate</span><span class="sp-val">${c.conf_rate}%</span></div>
+      ${noteLine}
     `;
     container.appendChild(div);
   });
