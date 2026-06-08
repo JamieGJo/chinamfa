@@ -1,0 +1,1228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>China's Diplomatic Language | 中国外交话语</title>
+
+  <!-- Leaflet for map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+  <!-- Chart.js for time series -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: 'Georgia', serif;
+      background: #faf9f7;
+      color: #1a1a1a;
+      line-height: 1.65;
+    }
+    a { color: #b5000f; text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Typography ── */
+    .zh { font-family: 'Noto Serif SC', 'SimSun', serif; color: #555; font-size: 0.88em; display: block; margin-top: 2px; }
+    h1 { font-size: 2rem; font-weight: 700; line-height: 1.2; }
+    h2 { font-size: 1.3rem; font-weight: 700; margin-bottom: 0.4rem; }
+    h3 { font-size: 1rem; font-weight: 700; margin-bottom: 0.3rem; }
+    p { margin-bottom: 0.8rem; }
+
+    /* ── Layout ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 0 1.5rem; }
+
+    /* ── Header ── */
+    header {
+      background: #1a1a2e;
+      color: white;
+      padding: 2rem 0 1.5rem;
+      border-bottom: 4px solid #b5000f;
+    }
+    header .subtitle { font-size: 0.95rem; color: #aaa; margin-top: 0.5rem; }
+    header .zh { color: #ccc; }
+    nav { margin-top: 1.2rem; display: flex; gap: 1.5rem; flex-wrap: wrap; }
+    nav a { color: #ccc; font-size: 0.9rem; font-family: sans-serif; }
+    nav a:hover { color: white; }
+
+    /* ── Section ── */
+    section { padding: 2.5rem 0; border-bottom: 1px solid #e8e4df; }
+    section:last-of-type { border-bottom: none; }
+    .section-label {
+      font-family: sans-serif;
+      font-size: 0.72rem;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: #b5000f;
+      margin-bottom: 0.6rem;
+    }
+
+    /* ── Headlines grid ── */
+    .headlines { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.2rem; margin-top: 1rem; }
+    .headline-card {
+      background: white;
+      border: 1px solid #e0dbd4;
+      border-left: 4px solid #b5000f;
+      padding: 1rem 1.1rem;
+      border-radius: 0 4px 4px 0;
+    }
+    .headline-card .stat { font-size: 2rem; font-weight: 700; color: #b5000f; line-height: 1; }
+    .headline-card .label { font-size: 0.85rem; color: #444; margin-top: 0.3rem; font-family: sans-serif; }
+    .headline-card .zh { font-size: 0.78rem; }
+
+    /* ── Map ── */
+    #map {
+      height: 480px;
+      border-radius: 4px;
+      border: 1px solid #ddd;
+      margin-top: 1rem;
+    }
+    .map-controls {
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-top: 0.8rem;
+      flex-wrap: wrap;
+      font-family: sans-serif;
+      font-size: 0.88rem;
+    }
+    .map-controls label { font-weight: 600; color: #333; }
+    #year-slider { flex: 1; min-width: 200px; accent-color: #b5000f; }
+    #year-display {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #b5000f;
+      min-width: 3rem;
+      text-align: center;
+    }
+    .map-note { font-size: 0.8rem; color: #777; margin-top: 0.5rem; font-family: sans-serif; }
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.78rem;
+      font-family: sans-serif;
+      color: #555;
+      margin-top: 0.5rem;
+    }
+    .legend-bar {
+      height: 10px;
+      width: 120px;
+      background: linear-gradient(to right, #fff5f0, #b5000f);
+      border: 1px solid #ccc;
+      border-radius: 2px;
+    }
+
+    /* ── Chart ── */
+    .chart-wrap { position: relative; height: 280px; margin-top: 1rem; }
+
+    /* ── Spokesperson cards ── */
+    .sp-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 0.8rem; margin-top: 1rem; }
+    .sp-card {
+      background: white;
+      border: 1px solid #e0dbd4;
+      border-top: 4px solid var(--sp-color, #999);
+      border-radius: 0 0 4px 4px;
+      padding: 0.8rem 0.9rem;
+      font-family: sans-serif;
+      font-size: 0.82rem;
+    }
+    .sp-card .sp-name { font-weight: 700; font-size: 0.9rem; margin-bottom: 0.4rem; }
+    .sp-card .sp-years { color: #777; margin-bottom: 0.5rem; font-size: 0.78rem; }
+    .sp-card .sp-stat { display: flex; justify-content: space-between; color: #444; padding: 0.15rem 0; border-bottom: 1px solid #f0ebe4; }
+    .sp-card .sp-stat:last-child { border-bottom: none; }
+    .sp-card .sp-val { font-weight: 600; color: #1a1a2e; }
+
+    /* ── Two-column chart layout ── */
+    .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem; }
+    @media (max-width: 720px) { .two-col { grid-template-columns: 1fr; } }
+    .col-label { font-family: sans-serif; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: #777; margin-bottom: 0.4rem; }
+
+    /* ── Article explorer ── */
+    .explorer-filters {
+      display: flex; flex-wrap: wrap; gap: 0.6rem; align-items: flex-end;
+      margin-bottom: 1rem; padding: 0.9rem 1rem; background: white;
+      border: 1px solid #e0dbd4; border-radius: 4px; font-family: sans-serif; font-size: 0.85rem;
+    }
+    .filter-group { display: flex; flex-direction: column; gap: 0.2rem; }
+    .filter-group label { font-size: 0.75rem; color: #666; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
+    .explorer-filters select, .explorer-filters input[type="text"] {
+      padding: 0.35rem 0.55rem; border: 1px solid #ccc; border-radius: 3px;
+      font-size: 0.85rem; background: white; color: #222; font-family: sans-serif;
+    }
+    .explorer-filters input[type="text"] { min-width: 200px; }
+    .filter-reset {
+      padding: 0.38rem 0.8rem; background: #f0ebe4; border: 1px solid #ccc;
+      border-radius: 3px; cursor: pointer; font-size: 0.82rem; font-family: sans-serif;
+      color: #444; white-space: nowrap; align-self: flex-end;
+    }
+    .filter-reset:hover { background: #e0dbd4; }
+    .explorer-count { font-family: sans-serif; font-size: 0.82rem; color: #666; margin-bottom: 0.6rem; }
+    .article-grid { display: flex; flex-direction: column; gap: 0.6rem; }
+    .article-card {
+      background: white; border: 1px solid #e0dbd4; border-radius: 4px;
+      padding: 0.85rem 1rem; cursor: default;
+    }
+    .article-card:hover { border-color: #b5000f; }
+    .article-meta {
+      display: flex; flex-wrap: wrap; gap: 0.5rem; align-items: center;
+      margin-bottom: 0.5rem; font-family: sans-serif; font-size: 0.8rem;
+    }
+    .article-meta .meta-date { font-weight: 700; color: #333; }
+    .article-meta .meta-sp {
+      padding: 0.1rem 0.45rem; border-radius: 2px; font-size: 0.75rem;
+      font-weight: 600; color: white; white-space: nowrap;
+    }
+    .article-meta .meta-who { color: #666; font-style: italic; }
+    .article-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.5rem; }
+    .tag {
+      display: inline-block; padding: 0.1rem 0.45rem;
+      border-radius: 2px; font-size: 0.72rem; font-family: sans-serif; font-weight: 600;
+    }
+    .tag-io       { background: #e8f4e8; color: #256325; border: 1px solid #b7d9b7; }
+    .tag-threat   { background: #fde8e8; color: #9e1010; border: 1px solid #f5b7b7; }
+    .tag-active   { background: #f5e0e8; color: #6d1a36; border: 1px solid #e0b0c0; }
+    .tag-attacked { background: #fef0e4; color: #8b4000; border: 1px solid #f5cc99; }
+    .tag-demand   { background: #fff3e0; color: #a05000; border: 1px solid #ffd599; }
+    .tag-urge     { background: #fffbe0; color: #806200; border: 1px solid #ffe499; }
+    .tag-request  { background: #e8f0f8; color: #1a4a7a; border: 1px solid #b0cce0; }
+    .tag-repr     { background: #e8eef5; color: #1a4a7a; border: 1px solid #a0b8d0; }
+    .article-q { font-size: 0.85rem; color: #555; font-style: italic; margin-bottom: 0.3rem; line-height: 1.5; }
+    .article-q::before { content: 'Q: '; font-weight: 700; font-style: normal; color: #888; }
+    .article-a { font-size: 0.88rem; color: #222; line-height: 1.6; }
+    .article-a::before { content: 'A: '; font-weight: 700; color: #b5000f; }
+    .article-link { font-family: sans-serif; font-size: 0.75rem; color: #b5000f; margin-top: 0.4rem; }
+    .load-more-wrap { text-align: center; margin-top: 1.2rem; }
+    .load-more {
+      padding: 0.55rem 2rem; background: white; border: 1px solid #b5000f;
+      border-radius: 3px; color: #b5000f; font-family: sans-serif; font-size: 0.9rem;
+      cursor: pointer; font-weight: 600;
+    }
+    .load-more:hover { background: #b5000f; color: white; }
+
+    /* ── Expandable definitions ── */
+    .expand-list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 1rem; }
+    .expand-item { border: 1px solid #e0dbd4; border-radius: 4px; background: white; overflow: hidden; }
+    .expand-item summary {
+      cursor: pointer;
+      padding: 0.55rem 0.9rem;
+      font-size: 0.87rem;
+      font-weight: 700;
+      font-family: sans-serif;
+      list-style: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      user-select: none;
+    }
+    .expand-item summary::-webkit-details-marker { display: none; }
+    .expand-item summary::after {
+      content: '+';
+      margin-left: auto;
+      font-size: 1rem;
+      color: #999;
+      font-weight: 400;
+      line-height: 1;
+    }
+    .expand-item[open] summary::after { content: '−'; }
+    .expand-item summary:hover { background: #faf5f0; }
+    .expand-body {
+      padding: 0.6rem 0.9rem 0.8rem;
+      font-size: 0.85rem;
+      color: #333;
+      border-top: 1px solid #f0ebe4;
+      line-height: 1.6;
+    }
+    .expand-body .zh { display: inline; font-size: 0.83em; color: #777; }
+    .expand-note { margin-top: 0.6rem; font-size: 0.78rem; color: #888; font-family: sans-serif; }
+
+    /* ── Keywords (expandable) ── */
+    .kw-list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 1rem; }
+
+    /* ── About ── */
+    .about-box {
+      background: white;
+      border: 1px solid #e0dbd4;
+      border-radius: 4px;
+      padding: 1.2rem 1.5rem;
+      margin-top: 1rem;
+      font-size: 0.9rem;
+    }
+    .about-box cite { font-style: italic; color: #555; }
+
+    /* ── Footer ── */
+    footer {
+      background: #1a1a2e;
+      color: #999;
+      padding: 1.5rem 0;
+      font-size: 0.82rem;
+      font-family: sans-serif;
+      text-align: center;
+    }
+    footer a { color: #ccc; }
+
+    /* ── Tooltip ── */
+    .leaflet-tooltip {
+      font-family: sans-serif;
+      font-size: 0.82rem;
+    }
+
+    @media (max-width: 600px) {
+      h1 { font-size: 1.4rem; }
+      #map { height: 320px; }
+      .headline-card .stat { font-size: 1.5rem; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ── HEADER ── -->
+<header>
+  <div class="container">
+    <div class="section-label">Research project · Ongoing</div>
+    <h1>China's Diplomatic Language<br>on the International Order</h1>
+    <span class="zh">中国外交话语与国际秩序</span>
+    <p class="subtitle">How does China talk about the world at press conferences? This site tracks language from the Ministry of Foreign Affairs (2002–2026).</p>
+    <nav>
+      <a href="#map-section">Map 地图</a>
+      <a href="#threats">Pressure 外部压力</a>
+      <a href="#trends">IO mentions 国际秩序</a>
+      <a href="#spokespeople">Spokespeople 发言人</a>
+      <a href="#topics">Topics &amp; Press 议题与媒体</a>
+      <a href="#explorer">Explorer 检索</a>
+      <a href="#about">About 关于</a>
+    </nav>
+  </div>
+</header>
+
+<!-- ── HEADLINES ── -->
+<section>
+  <div class="container">
+    <div class="section-label">Key findings · 主要发现</div>
+    <div class="headlines">
+      <div class="headline-card">
+        <div class="stat">35,599</div>
+        <div class="label">Press conference exchanges analysed, 2002–2026</div>
+        <span class="zh">分析的新闻发布会问答条目（2002–2026年）</span>
+      </div>
+      <div class="headline-card">
+        <div class="stat" id="stat-us-pct">—</div>
+        <div class="label">Of country-tagged answers mention the United States</div>
+        <span class="zh">涉及美国的回答占比</span>
+      </div>
+      <div class="headline-card">
+        <div class="stat">Sep 2020</div>
+        <div class="label">Peak month for "international order" mentions</div>
+        <span class="zh">"国际秩序"提及量最高峰</span>
+      </div>
+      <div class="headline-card">
+        <div class="stat" id="stat-countries">—</div>
+        <div class="label">Countries and territories mentioned across the corpus</div>
+        <span class="zh">语料库涵盖的国家和地区数量</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ── MAP ── -->
+<section id="map-section">
+  <div class="container">
+    <div class="section-label">Geographic focus · 地理重点</div>
+    <h2>Where does China's diplomatic attention fall?
+      <span class="zh">中国外交关注的地理分布</span>
+    </h2>
+    <p style="font-size:0.9rem;color:#555;">Each country is coloured by how often it appeared in MFA spokesperson answers in the selected year. Click a country for details.</p>
+
+    <div id="map"></div>
+
+    <div class="map-controls">
+      <label for="year-slider">Year 年份:</label>
+      <input type="range" id="year-slider" min="2002" max="2026" value="2026" step="1">
+      <span id="year-display">2026</span>
+    </div>
+    <div class="legend">
+      <span>Fewer mentions</span>
+      <div class="legend-bar"></div>
+      <span>More mentions</span>
+    </div>
+    <p class="map-note">
+      Note: counts reflect how often a country was mentioned in MFA spokesperson answers, not questions. China is excluded (it appears in almost every answer). Taiwan and Hong Kong are shown separately. Xinjiang and Tibet appear in the data but cannot be rendered as separate map units. Data for 2002–2023 uses NLP entity extraction from the original corpus; 2024–2026 uses keyword matching on question and answer text and is broadly comparable but not strictly equivalent.
+    </p>
+  </div>
+</section>
+
+<!-- ── THREATS ── -->
+<section id="threats">
+  <div class="container">
+    <div class="section-label">China under pressure · 中国承受的外部压力</div>
+    <h2>Confrontation over time: threats, demands, and representations
+      <span class="zh">对抗态势：威胁、要求与交涉</span>
+    </h2>
+    <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">This section draws on a subset of the MFA corpus where coders identified confrontational exchanges — questions in which a foreign government or actor is framing something as a threat to China, making a demand, or where China has made formal diplomatic representations. The chart below shows how the volume of these exchanges has changed over time.</p>
+    <p style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-bottom:1rem;">Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。</p>
+
+    <div class="chart-wrap" style="height:340px;">
+      <canvas id="threats-chart"></canvas>
+    </div>
+
+    <p style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-top:0.6rem;">Click a category to see its definition. 点击各类别查看定义。</p>
+    <div class="expand-list" style="margin-top:0.5rem;">
+      <details class="expand-item">
+        <summary><span style="color:#6d1a36;">Active threat 迫切威胁</span></summary>
+        <div class="expand-body">A question where something is framed as an active, current, or escalating threat to China — a stronger coding than generic "Threat." Rises sharply after 2017 and peaks in 2020 (COVID-era US-China confrontation, Hong Kong, Xinjiang) before surging again in 2024–25. <span class="zh">迫切威胁：问题将某事定性为对中国的紧迫或升级威胁，程度强于一般性"威胁"编码，2020年（新冠疫情、香港、新疆）及2024–25年显著上升。</span></div>
+      </details>
+      <details class="expand-item">
+        <summary><span style="color:#e8735a;">Attacked / criticised 被攻击或批评</span></summary>
+        <div class="expand-body">A question where China is portrayed as being attacked, criticised, or blamed — by foreign governments, media, or international bodies. Distinct from a direct security threat: the frame is reputational or rhetorical. Most frequent in periods of intense international criticism (2008 Tibet/Olympics; 2016–17; 2020–21). <span class="zh">被攻击或批评：问题将中国描绘为遭受外国政府、媒体或国际机构攻击、批评或指责的对象，区别于直接安全威胁，属声誉或话语层面的框架。2008年、2016–17年、2020–21年较为集中。</span></div>
+      </details>
+      <details class="expand-item">
+        <summary><span style="color:#c0291a;">Threat 威胁</span></summary>
+        <div class="expand-body">A foreign government, official, or media outlet frames something as a direct threat to China — its sovereignty, interests, or people. Coded when the spokesperson's answer treats the exchange as confrontational. <span class="zh">威胁：外国政府或媒体将某事定性为对中国主权、利益或人民的直接威胁。</span></div>
+      </details>
+      <details class="expand-item">
+        <summary><span style="color:#f4a261;">Demand 要求</span></summary>
+        <div class="expand-body">A foreign actor explicitly demands that China take or stop a specific action — e.g. release a detainee, stop military activity, change a policy. Stronger than an urge; implies a condition or consequence. <span class="zh">要求：外国行为体明确要求中国采取或停止某项具体行动，通常暗含条件或后果。</span></div>
+      </details>
+      <details class="expand-item">
+        <summary><span style="color:#c8a200;">Urge 敦促</span></summary>
+        <div class="expand-body">A foreign actor urges, calls on, or presses China to act — a softer form of pressure than a demand. Common in multilateral or diplomatic settings. <span class="zh">敦促：外国行为体敦促、呼吁或施压中国采取行动，力度弱于"要求"。</span></div>
+      </details>
+      <details class="expand-item">
+        <summary><span style="color:#888;">Request 请求</span></summary>
+        <div class="expand-body">A foreign actor requests China do something — phrased as an ask rather than a demand, often in bilateral or cooperative contexts. The mildest category. <span class="zh">请求：外国行为体请求中国做某事，措辞温和，常见于双边或合作背景中。</span></div>
+      </details>
+      <details class="expand-item">
+        <summary><span style="color:#457b9d;">Representations (China) 交涉</span></summary>
+        <div class="expand-body">China makes formal diplomatic representations — the spokesperson says China has lodged a formal objection or protest with a foreign government through official channels. A standard tool of diplomatic pushback, distinct from the above: it is China's own action, not a foreign pressure. <span class="zh">交涉：中国正式提出外交交涉，即通过官方渠道向外国政府提出抗议或异议。与上述类别不同，这是中国的主动行动，而非外国压力。</span></div>
+      </details>
+    </div>
+    <p class="expand-note" style="margin-top:0.6rem;">Note: a single exchange can be coded for multiple categories. Counts reflect press conference exchanges, not real-world incidents. The corpus covers 2003–2026; 2026 is partial.</p>
+
+    <h3 style="margin-top:2rem;font-size:1.1rem;">Geographic distribution of pressure
+      <span class="zh" style="display:block;font-size:0.85rem;color:#555;font-weight:400;margin-top:3px;">外部压力的地理分布</span>
+    </h3>
+    <p style="font-size:0.9rem;color:#555;margin-top:0.5rem;">Which countries appear most often in press conference questions that involve threats, demands, urges, or formal representations? Countries are coloured by total count across the full corpus (2003–2026). Click a country for a breakdown.</p>
+    <div id="threats-map" style="height:420px;border-radius:4px;border:1px solid #ddd;margin-top:0.8rem;"></div>
+    <p class="map-note" style="margin-top:0.5rem;">Countries are coded from the question text (<em>q_loc</em> field) — they reflect which countries journalists associated with threatening or confrontational framing, not necessarily which country initiated the action. The United States and Taiwan account for the largest share by a wide margin.</p>
+  </div>
+</section>
+
+<!-- ── TRENDS ── -->
+<section id="trends">
+  <div class="container">
+    <div class="section-label">Trend · 趋势</div>
+    <h2>Monthly mentions of "international order"
+      <span class="zh">每月提及"国际秩序"的频次</span>
+    </h2>
+    <p style="font-size:0.9rem;color:#555;">How often did MFA spokespeople mention the international order in press conference answers? Peaks often align with major diplomatic events. Bar colour indicates the average VADER sentiment score across answers that month, calibrated to the actual distribution: <span style="color:#2166ac;font-weight:600;">blue</span> = positive framing (top half), <span style="color:#e0a060;font-weight:600;">amber</span> = restrained or mixed (second quartile), <span style="color:#d73027;font-weight:600;">red</span> = negative or critical framing (bottom quarter). December 2025 (n=29, near-neutral sentiment) illustrates how the 2025 Trump-II spike produced more defensive language than earlier peaks.</p>
+    <div class="chart-wrap">
+      <canvas id="trend-chart"></canvas>
+    </div>
+  </div>
+</section>
+
+<!-- ── SPOKESPEOPLE ── -->
+<section id="spokespeople">
+  <div class="container">
+    <div class="section-label">Spokespeople · 发言人</div>
+    <h2>Who speaks for China?
+      <span class="zh">中国外交部发言人一览</span>
+    </h2>
+    <p style="font-size:0.9rem;color:#555;">Each spokesperson leaves a distinct stylistic register. The chart shows their activity across the corpus; the cards below summarise key stats, including the share of their exchanges coded as confrontational and how often "international order" featured in their answers.</p>
+
+    <div class="chart-wrap" style="height:320px;margin-bottom:1.5rem;">
+      <canvas id="sp-chart"></canvas>
+    </div>
+
+    <div class="sp-cards" id="sp-cards"></div>
+  </div>
+</section>
+
+<!-- ── TOPICS & PRESS ── -->
+<section id="topics">
+  <div class="container">
+    <div class="section-label">Topics &amp; Press · 议题与媒体</div>
+    <h2>What are questions about — and who asks them?
+      <span class="zh">记者问什么、谁在提问</span>
+    </h2>
+    <p style="font-size:0.9rem;color:#555;">The MFA corpus records which organisations and countries are mentioned in each question, and which news outlet asked it. These charts reveal whose interests dominate the press conference agenda.</p>
+
+    <div class="two-col" style="margin-top:1.5rem;">
+      <div>
+        <div class="col-label">Top organisations in questions</div>
+        <p style="font-size:0.82rem;color:#777;font-family:sans-serif;margin-bottom:0.5rem;">Bar = total mentions; dot = confrontation rate</p>
+        <div style="position:relative;height:340px;">
+          <canvas id="orgs-chart"></canvas>
+        </div>
+      </div>
+      <div>
+        <div class="col-label">Questions by press outlet</div>
+        <p style="font-size:0.82rem;color:#777;font-family:sans-serif;margin-bottom:0.5rem;">Bars show count; colour shows confrontation rate (darker = higher)</p>
+        <div style="position:relative;height:340px;">
+          <canvas id="press-chart"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <p style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-top:1rem;">Note: 59% of exchanges have no outlet attribution (recorded as "–" in the original data — common for written questions or when the transcript omits the asker). Western wire services (AFP, Reuters, Bloomberg) ask confrontational questions at 9.1% vs Chinese state media at 6.8%. Confrontation rate = share of an outlet's questions coded as Threat, Demand, Urge, Active threat, or Attacked/criticised.</p>
+  </div>
+</section>
+
+<!-- ── ARTICLE EXPLORER ── -->
+<section id="explorer">
+  <div class="container">
+    <div class="section-label">Article explorer · 问答检索</div>
+    <h2>Search the press conference record
+      <span class="zh">检索新闻发布会问答</span>
+    </h2>
+    <p style="font-size:0.9rem;color:#555;margin-bottom:1rem;">Browse all exchanges flagged as confrontational or mentioning "international order" (2,298 records). Filter by year, spokesperson, confrontation type, or search for keywords in the question or answer text.</p>
+
+    <div class="explorer-filters">
+      <div class="filter-group">
+        <label>Year from</label>
+        <select id="f-year-from">
+          <option value="">Any</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Year to</label>
+        <select id="f-year-to">
+          <option value="">Any</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Spokesperson</label>
+        <select id="f-sp">
+          <option value="">All</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Type</label>
+        <select id="f-tag">
+          <option value="">All types</option>
+          <option value="IO mention">IO mention</option>
+          <option value="Active threat">Active threat</option>
+          <option value="Attacked/criticised">Attacked / criticised</option>
+          <option value="Threat">Threat</option>
+          <option value="Demand">Demand</option>
+          <option value="Urge">Urge</option>
+          <option value="Request">Request</option>
+          <option value="Representations">Representations</option>
+        </select>
+      </div>
+      <div class="filter-group">
+        <label>Search text</label>
+        <input type="text" id="f-search" placeholder="keywords in Q or A …">
+      </div>
+      <button class="filter-reset" id="f-reset">Clear filters</button>
+    </div>
+
+    <div class="explorer-count" id="explorer-count"></div>
+    <div class="article-grid" id="article-grid"></div>
+    <div class="load-more-wrap">
+      <button class="load-more" id="load-more-btn" style="display:none;">Load more</button>
+    </div>
+  </div>
+</section>
+
+<!-- ── ABOUT ── -->
+<section id="about">
+  <div class="container">
+    <div class="section-label">About this site · 关于本站</div>
+    <h2>Data and methods
+      <span class="zh">数据与方法</span>
+    </h2>
+    <div class="about-box">
+      <p>This site draws on the <strong>Chinese Ministry of Foreign Affairs Press Conference Corpus</strong> — a structured dataset of MFA spokesperson Q&amp;A sessions from October 2002 to the present, covering over 35,000 individual exchanges.</p>
+      <p>Geographic locations in spokesperson answers were extracted using named entity recognition and manually validated. Country mentions reflect the text of answers only; China itself is excluded from geographic counts as it appears in almost every response.</p>
+      <p>The international order trend data tracks monthly frequency of the term 国际秩序 (<em>guójì zhìxù</em>) in spokesperson answers, with VADER sentiment scoring.</p>
+      <p><strong>Primary data source:</strong><br>
+      <cite>Mochtak, M., &amp; Turcsanyi, R. Q. (2021). Studying Chinese foreign policy narratives: Introducing the Ministry of Foreign Affairs press conferences corpus. <em>Journal of Chinese Political Science</em>, 26(4), 743–761.</cite></p>
+      <p><strong>Status:</strong> Preliminary research. Data and classifications are subject to revision.</p>
+      <p style="margin-bottom:0;"><strong>Related:</strong> <a href="https://jamiegjo.github.io/chinaio.github.io">State media analysis →</a></p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="container">
+    <p>Preliminary research · Data 2002–2026 · <a href="https://jamiegjo.github.io/chinaio.github.io">State media site</a></p>
+  </div>
+</footer>
+
+<!-- ── SCRIPTS ── -->
+<script>
+// ── Load data and initialise ──────────────────────────────────────────────
+
+Promise.all([
+  fetch('data/country_counts.json').then(r => r.json()),
+  fetch('data/monthly_io.json').then(r => r.json()),
+  fetch('data/threats_by_year.json').then(r => r.json()),
+  fetch('data/threats_by_country.json').then(r => r.json()),
+  fetch('data/spokesperson_by_year.json').then(r => r.json()),
+  fetch('data/spokesperson_cards.json').then(r => r.json()),
+  fetch('data/press_breakdown.json').then(r => r.json()),
+  fetch('data/topics.json').then(r => r.json()),
+  fetch('data/articles.json').then(r => r.json()),
+]).then(([countryData, monthlyData, threatsData, threatsByCountry,
+          spByYear, spCards, pressData, topicsData, articlesData]) => {
+  initHeadlines(countryData, monthlyData);
+  initMap(countryData);
+  initChart(monthlyData);
+  initThreatsChart(threatsData);
+  initThreatsMap(threatsByCountry);
+  initSpChart(spByYear);
+  initSpCards(spCards);
+  initTopicsCharts(topicsData, pressData);
+  initExplorer(articlesData, spCards);
+}).catch(err => {
+  console.error('Data load error:', err);
+  document.getElementById('map').innerHTML =
+    '<p style="padding:2rem;color:#666;">Map data could not be loaded. If running locally, use a local server (see README).</p>';
+});
+
+// ── Headlines ────────────────────────────────────────────────────────────
+
+function initHeadlines(countryData, monthlyData) {
+  // US percentage
+  const countries = countryData.countries;
+  let usMentions = 0, totalMentions = 0;
+  for (const [name, yearCounts] of Object.entries(countries)) {
+    const total = Object.values(yearCounts).reduce((a, b) => a + b, 0);
+    if (name !== 'China') {
+      totalMentions += total;
+      if (name === 'United States') usMentions = total;
+    }
+  }
+  const pct = Math.round((usMentions / totalMentions) * 100);
+  document.getElementById('stat-us-pct').textContent = pct + '%';
+
+  // Country count (exclude China, skip regions without ISO)
+  const countryCount = Object.keys(countries).filter(n => n !== 'China').length;
+  document.getElementById('stat-countries').textContent = countryCount;
+}
+
+// ── Map ──────────────────────────────────────────────────────────────────
+
+const ISO_MAP = {
+  'United States':'USA','Japan':'JPN','Taiwan':'TWN','North Korea':'PRK',
+  'Russia':'RUS','Hong Kong':'HKG','India':'IND','Pakistan':'PAK',
+  'Xinjiang':'CHN','Philippines':'PHL','United Kingdom':'GBR','Afghanistan':'AFG',
+  'Iran':'IRN','Ukraine':'UKR','Australia':'AUS','South Korea':'KOR',
+  'Germany':'DEU','France':'FRA','Indonesia':'IDN','Palestine':'PSE',
+  'Syria':'SYR','Iraq':'IRQ','Canada':'CAN','Israel':'ISR','Myanmar':'MMR',
+  'Sri Lanka':'LKA','Vietnam':'VNM','Libya':'LBY','Sudan':'SDN',
+  'Egypt':'EGY','Saudi Arabia':'SAU','Turkey':'TUR','Brazil':'BRA',
+  'South Africa':'ZAF','Cuba':'CUB','Venezuela':'VEN','Nepal':'NPL',
+  'Cambodia':'KHM','Singapore':'SGP','Thailand':'THA','Malaysia':'MYS',
+  'Kazakhstan':'KAZ','Malaysia':'MYS','Italy':'ITA','Spain':'ESP',
+  'Nigeria':'NGA','Kenya':'KEN','Ethiopia':'ETH','Zimbabwe':'ZWE',
+  'Angola':'AGO','DR Congo':'COD','Serbia':'SRB','Panama':'PAN',
+  'Bangladesh':'BGD','Mongolia':'MNG','Laos':'LAO','Uzbekistan':'UZB',
+  'Hungary':'HUN','Solomon Islands':'SLB','Fiji':'FJI','Tonga':'TON',
+  'Vanuatu':'VUT','Papua New Guinea':'PNG','Maldives':'MDV','Bhutan':'BTN',
+  'UAE':'ARE','Qatar':'QAT','Kuwait':'KWT','Jordan':'JOR','Lebanon':'LBN',
+  'Yemen':'YEM','Morocco':'MAR','Tunisia':'TUN','Algeria':'DZA',
+  'Belarus':'BLR','Azerbaijan':'AZE','Armenia':'ARM','Lithuania':'LTU',
+  'Poland':'POL','Czech Republic':'CZE','Sweden':'SWE','Finland':'FIN',
+  'Norway':'NOR','Denmark':'DNK','Netherlands':'NLD','Belgium':'BEL',
+  'Portugal':'PRT','Greece':'GRC','Austria':'AUT','Switzerland':'CHE',
+  'Ireland':'IRL','Croatia':'HRV','Seychelles':'SYC','Albania':'ALB',
+  'Niger':'NER','Kosovo':'XKX','Macao':'MAC','Tibet':'CHN'
+};
+
+// Reverse: iso3 → country name
+const ISO_TO_NAME = {};
+for (const [name, iso] of Object.entries(ISO_MAP)) {
+  if (!ISO_TO_NAME[iso]) ISO_TO_NAME[iso] = name;
+}
+
+let map, geoLayer, countryData;
+
+function initMap(data) {
+  countryData = data;
+
+  map = L.map('map', {
+    center: [20, 15],
+    zoom: 2,
+    minZoom: 1,
+    maxZoom: 6,
+    worldCopyJump: true
+  });
+
+  // Minimal tile layer
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap contributors © CARTO',
+    subdomains: 'abcd',
+    maxZoom: 19
+  }).addTo(map);
+
+  // Load world GeoJSON (bundled locally)
+  fetch('data/world.geojson')
+    .then(r => r.json())
+    .then(geo => {
+      geoLayer = L.geoJSON(geo, {
+        style: feature => getStyle(feature, currentYear()),
+        onEachFeature: onEachFeature
+      }).addTo(map);
+      updateMap(currentYear());
+    })
+    .catch(() => {
+      document.querySelector('.map-note').textContent +=
+        ' (World borders could not be loaded — check your internet connection.)';
+    });
+
+  // Slider
+  const slider = document.getElementById('year-slider');
+  const display = document.getElementById('year-display');
+  slider.addEventListener('input', () => {
+    display.textContent = slider.value;
+    updateMap(parseInt(slider.value));
+  });
+}
+
+function currentYear() {
+  return parseInt(document.getElementById('year-slider').value);
+}
+
+function getCountForYear(iso3, year) {
+  const name = ISO_TO_NAME[iso3];
+  if (!name || !countryData.countries[name]) return 0;
+  const d = countryData.countries[name];
+  // Keys may be stored as "2024.0" (float) or "2024" (int)
+  return d[String(year)] || d[year + '.0'] || 0;
+}
+
+function getColor(count) {
+  if (count === 0) return '#f0eeea';
+  if (count < 5)   return '#fdd5cc';
+  if (count < 15)  return '#f99981';
+  if (count < 40)  return '#e05c45';
+  if (count < 100) return '#c0291a';
+  return '#8b0000';
+}
+
+function getStyle(feature, year) {
+  const iso = feature.properties['ISO3166-1-Alpha-3'];
+  const count = iso === 'CHN' ? 0 : getCountForYear(iso, year); // exclude China
+  return {
+    fillColor: getColor(count),
+    weight: 0.5,
+    opacity: 1,
+    color: '#aaa',
+    fillOpacity: 0.85
+  };
+}
+
+function updateMap(year) {
+  if (!geoLayer) return;
+  geoLayer.eachLayer(layer => {
+    layer.setStyle(getStyle(layer.feature, year));
+  });
+}
+
+function onEachFeature(feature, layer) {
+  layer.on({
+    mouseover: e => {
+      const iso = feature.properties['ISO3166-1-Alpha-3'];
+      const name = feature.properties.name || 'Unknown';
+      const count = iso === 'CHN' ? '(excluded — speaker country)' : getCountForYear(iso, currentYear());
+      layer.bindTooltip(
+        `<strong>${name}</strong><br>Mentions in ${currentYear()}: ${count}`
+      ).openTooltip(e.latlng);
+      layer.setStyle({ weight: 2, color: '#333' });
+    },
+    mouseout: e => {
+      layer.setStyle(getStyle(feature, currentYear()));
+      layer.closeTooltip();
+    }
+  });
+}
+
+// ── Chart ────────────────────────────────────────────────────────────────
+
+function initChart(monthly) {
+  const ctx = document.getElementById('trend-chart').getContext('2d');
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: monthly.map(d => d.month),
+      datasets: [{
+        label: 'Mentions of "international order" (国际秩序)',
+        data: monthly.map(d => d.n_io),
+        backgroundColor: monthly.map(d => {
+          // Colour by sentiment using distribution-based quartile thresholds:
+          // p75=0.968, p50=0.889, p25=0.677 (computed from actual data)
+          const s = d.sentiment;
+          if (s === null) return '#ccc';
+          if (s > 0.968) return '#2166ac';   // top quartile: positive
+          if (s > 0.889) return '#74add1';   // 2nd quartile: broadly positive
+          if (s > 0.677) return '#e0a060';   // 3rd quartile: mixed/restrained
+          return '#d73027';                   // bottom quartile: negative/critical
+        }),
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            title: ctx => ctx[0].label,
+            label: ctx => {
+              const d = monthly[ctx.dataIndex];
+              const sent = d.sentiment !== null ? d.sentiment.toFixed(2) : 'n/a';
+              return [`Mentions: ${d.n_io}`, `Of ${d.n_total} total answers (${d.io_rate.toFixed(1)}%)`, `Sentiment: ${sent}`];
+            }
+          }
+        }
+      },
+      scales: {
+        x: {
+          ticks: {
+            maxTicksLimit: 12,
+            font: { size: 10 },
+            callback: (val, idx) => {
+              const lbl = monthly[idx].month;
+              return lbl.endsWith('-01') ? lbl.slice(0, 4) : '';
+            }
+          },
+          grid: { display: false }
+        },
+        y: {
+          beginAtZero: true,
+          ticks: { font: { size: 11 } },
+          title: { display: true, text: 'Monthly mentions', font: { size: 11 } }
+        }
+      }
+    }
+  });
+
+  // (sentiment note is in the section intro text)
+}
+
+// ── Threats Map ──────────────────────────────────────────────────────────
+
+function initThreatsMap(byCountry) {
+  const tmap = L.map('threats-map', {
+    center: [20, 15], zoom: 2, minZoom: 1, maxZoom: 6, worldCopyJump: true
+  });
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png', {
+    attribution: '© OpenStreetMap contributors © CARTO',
+    subdomains: 'abcd', maxZoom: 19
+  }).addTo(tmap);
+
+  function getThreatColor(total) {
+    if (!total || total === 0) return '#f0eeea';
+    if (total < 10)  return '#d4e6f1';
+    if (total < 30)  return '#7fb3d3';
+    if (total < 80)  return '#2471a3';
+    if (total < 200) return '#1a5276';
+    return '#0e2f44';
+  }
+
+  fetch('data/world.geojson')
+    .then(r => r.json())
+    .then(geo => {
+      L.geoJSON(geo, {
+        style: feature => {
+          const iso = feature.properties['ISO3166-1-Alpha-3'];
+          const d = byCountry[iso];
+          return {
+            fillColor: getThreatColor(d ? d.total : 0),
+            weight: 0.5, opacity: 1, color: '#aaa', fillOpacity: 0.85
+          };
+        },
+        onEachFeature: (feature, layer) => {
+          layer.on({
+            mouseover: e => {
+              const iso = feature.properties['ISO3166-1-Alpha-3'];
+              const name = feature.properties.name || 'Unknown';
+              const d = byCountry[iso];
+              let tip = `<strong>${name}</strong>`;
+              if (d) {
+                tip += `<br>Total: ${d.total}`;
+                if (d.Threat) tip += `<br>Threat: ${d.Threat}`;
+                if (d.Demand) tip += `<br>Demand: ${d.Demand}`;
+                if (d.Urge) tip += `<br>Urge: ${d.Urge}`;
+                if (d.Representations) tip += `<br>Representations: ${d.Representations}`;
+              } else {
+                tip += '<br>No confrontational exchanges coded';
+              }
+              layer.bindTooltip(tip).openTooltip(e.latlng);
+              layer.setStyle({ weight: 2, color: '#333' });
+            },
+            mouseout: () => {
+              const iso = feature.properties['ISO3166-1-Alpha-3'];
+              const d = byCountry[iso];
+              layer.setStyle({
+                fillColor: getThreatColor(d ? d.total : 0),
+                weight: 0.5, opacity: 1, color: '#aaa', fillOpacity: 0.85
+              });
+              layer.closeTooltip();
+            }
+          });
+        }
+      }).addTo(tmap);
+    });
+}
+
+// ── Threats Chart ────────────────────────────────────────────────────────
+
+function initThreatsChart(threats) {
+  const ctx = document.getElementById('threats-chart').getContext('2d');
+  const labels = threats.map(d => d.year);
+
+  // Bar series — stacked; note a single exchange can fall into multiple categories
+  const series = [
+    { key: 'Active threat',   label: 'Active threat',           color: '#6d1a36' },
+    { key: 'China attacked',  label: 'Attacked / criticised',   color: '#e8735a' },
+    { key: 'Threat',          label: 'Threat',                  color: '#c0291a' },
+    { key: 'Demand',          label: 'Demand',                  color: '#f4a261' },
+    { key: 'Urge',            label: 'Urge',                    color: '#e9c46a' },
+    { key: 'Request',         label: 'Request',                 color: '#a8c5da' },
+    { key: 'Representations', label: 'Representations (China)', color: '#457b9d' },
+  ];
+
+  const barDatasets = series.map(s => ({
+    type: 'bar',
+    label: s.label,
+    data: threats.map(d => d[s.key] || 0),
+    backgroundColor: s.color,
+    stack: 'threats',
+    borderWidth: 0,
+  }));
+
+  // Dashed line showing actual distinct exchange count (bars sum to more due to multi-coding)
+  const totalLineDataset = {
+    type: 'line',
+    label: 'Total exchanges (distinct)',
+    data: threats.map(d => d.total),
+    borderColor: '#222',
+    borderWidth: 2,
+    borderDash: [6, 4],
+    pointRadius: 3,
+    pointBackgroundColor: '#222',
+    fill: false,
+    tension: 0,
+    order: 0,
+  };
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [...barDatasets, totalLineDataset]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'top',
+          labels: { font: { size: 11 }, boxWidth: 14, padding: 10 }
+        },
+        tooltip: {
+          mode: 'index',
+          callbacks: {
+            title: ctx => 'Year: ' + ctx[0].label,
+            label: ctx => `${ctx.dataset.label}: ${ctx.raw}`
+          }
+        }
+      },
+      scales: {
+        x: {
+          stacked: true,
+          grid: { display: false },
+          ticks: { font: { size: 11 } }
+        },
+        y: {
+          stacked: true,
+          beginAtZero: true,
+          ticks: { font: { size: 11 } },
+          title: { display: true, text: 'Annual count (bars multi-count; line = exchanges)', font: { size: 11 } }
+        }
+      }
+    }
+  });
+}
+
+// ── Spokesperson Chart ────────────────────────────────────────────────────
+
+function initSpChart(spByYear) {
+  const ctx = document.getElementById('sp-chart').getContext('2d');
+  new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels: spByYear.years,
+      datasets: spByYear.series.map(s => ({
+        label: s.name,
+        data: s.data,
+        backgroundColor: s.color,
+        stack: 'sp',
+        borderWidth: 0,
+      }))
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { font: { size: 10 }, boxWidth: 12, padding: 8 }
+        },
+        tooltip: {
+          mode: 'index',
+          callbacks: {
+            title: ctx => 'Year: ' + ctx[0].label,
+            label: ctx => ctx.raw > 0 ? `${ctx.dataset.label}: ${ctx.raw}` : null,
+            filter: item => item.raw > 0,
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { stacked: true, beginAtZero: true, ticks: { font: { size: 11 } },
+             title: { display: true, text: 'Exchanges per year', font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// ── Spokesperson Cards ────────────────────────────────────────────────────
+
+function initSpCards(cards) {
+  const container = document.getElementById('sp-cards');
+  cards.forEach(c => {
+    const div = document.createElement('div');
+    div.className = 'sp-card';
+    div.style.setProperty('--sp-color', c.color);
+    div.innerHTML = `
+      <div class="sp-name">${c.name}</div>
+      <div class="sp-years">${c.year_min || '?'} – ${c.year_max || '?'}</div>
+      <div class="sp-stat"><span>Exchanges</span><span class="sp-val">${c.n_total.toLocaleString()}</span></div>
+      <div class="sp-stat"><span>IO mentions</span><span class="sp-val">${c.n_io}</span></div>
+      <div class="sp-stat"><span>Confrontation rate</span><span class="sp-val">${c.conf_rate}%</span></div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+// ── Topics & Press Charts ─────────────────────────────────────────────────
+
+function initTopicsCharts(topicsData, pressData) {
+  // Organisations chart (horizontal bar)
+  const orgs = topicsData.top_q_org.slice(0, 14);
+  const orgCtx = document.getElementById('orgs-chart').getContext('2d');
+  new Chart(orgCtx, {
+    type: 'bar',
+    data: {
+      labels: orgs.map(d => d.label),
+      datasets: [{
+        label: 'Mentions in questions',
+        data: orgs.map(d => d.n),
+        backgroundColor: '#2166ac',
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: ctx => `${ctx.raw.toLocaleString()} question mentions` } }
+      },
+      scales: {
+        x: { beginAtZero: true, ticks: { font: { size: 10 } } },
+        y: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+
+  // Press outlets chart (horizontal bar, coloured by confrontation rate)
+  const outlets = pressData.top_outlets.slice(0, 15);
+  const pressCtx = document.getElementById('press-chart').getContext('2d');
+
+  // Color gradient: confrontation rate 0% = light, high = dark red
+  function confColor(rate) {
+    if (rate >= 10) return '#8b0000';
+    if (rate >= 8)  return '#c0291a';
+    if (rate >= 6)  return '#e05c45';
+    if (rate >= 4)  return '#f99981';
+    return '#fdd5cc';
+  }
+
+  new Chart(pressCtx, {
+    type: 'bar',
+    data: {
+      labels: outlets.map(d => d.outlet),
+      datasets: [{
+        label: 'Total questions',
+        data: outlets.map(d => d.n),
+        backgroundColor: outlets.map(d => confColor(d.conf_rate)),
+        borderWidth: 0,
+      }]
+    },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const o = outlets[ctx.dataIndex];
+              return [`${o.n.toLocaleString()} questions`, `Confrontation rate: ${o.conf_rate}%`, `Category: ${o.category}`];
+            }
+          }
+        }
+      },
+      scales: {
+        x: { beginAtZero: true, ticks: { font: { size: 10 } } },
+        y: { ticks: { font: { size: 11 } } }
+      }
+    }
+  });
+}
+
+// ── Article Explorer ──────────────────────────────────────────────────────
+
+const PAGE_SIZE = 25;
+let explorerData = [];
+let filteredData = [];
+let shownCount = 0;
+let spColorMap = {};
+
+function tagClass(tag) {
+  const m = {
+    'IO mention': 'tag-io',
+    'Active threat': 'tag-active',
+    'Attacked/criticised': 'tag-attacked',
+    'Threat': 'tag-threat',
+    'Demand': 'tag-demand',
+    'Urge': 'tag-urge',
+    'Request': 'tag-request',
+    'Representations': 'tag-repr',
+  };
+  return m[tag] || 'tag-io';
+}
+
+function renderCard(art) {
+  const tags = art.tags.map(t =>
+    `<span class="tag ${tagClass(t)}">${t}</span>`
+  ).join('');
+  const spColor = spColorMap[art.spokesperson] || '#555';
+  const spBadge = art.spokesperson
+    ? `<span class="meta-sp" style="background:${spColor}">${art.spokesperson}</span>` : '';
+  const whoAsked = art.who_asked ? `<span class="meta-who">${art.who_asked}</span>` : '';
+  const linkHtml = art.link
+    ? `<div class="article-link"><a href="${art.link}" target="_blank" rel="noopener">Source →</a></div>` : '';
+  return `
+    <div class="article-card">
+      <div class="article-meta">
+        <span class="meta-date">${art.date || 'n/d'}</span>
+        ${spBadge}
+        ${whoAsked}
+      </div>
+      ${tags ? `<div class="article-tags">${tags}</div>` : ''}
+      <div class="article-q">${art.question}</div>
+      <div class="article-a">${art.answer}</div>
+      ${linkHtml}
+    </div>`;
+}
+
+function applyFilters() {
+  const yearFrom = parseInt(document.getElementById('f-year-from').value) || 0;
+  const yearTo   = parseInt(document.getElementById('f-year-to').value)   || 9999;
+  const sp       = document.getElementById('f-sp').value;
+  const tag      = document.getElementById('f-tag').value;
+  const search   = document.getElementById('f-search').value.trim().toLowerCase();
+
+  filteredData = explorerData.filter(a => {
+    if (a.year && (a.year < yearFrom || a.year > yearTo)) return false;
+    if (sp && a.spokesperson !== sp) return false;
+    if (tag && !a.tags.includes(tag)) return false;
+    if (search) {
+      const hay = (a.question + ' ' + a.answer).toLowerCase();
+      if (!hay.includes(search)) return false;
+    }
+    return true;
+  });
+
+  shownCount = 0;
+  document.getElementById('article-grid').innerHTML = '';
+  showMore();
+}
+
+function showMore() {
+  const grid = document.getElementById('article-grid');
+  const slice = filteredData.slice(shownCount, shownCount + PAGE_SIZE);
+  grid.insertAdjacentHTML('beforeend', slice.map(renderCard).join(''));
+  shownCount += slice.length;
+
+  document.getElementById('explorer-count').textContent =
+    `Showing ${shownCount} of ${filteredData.length} records`;
+
+  const btn = document.getElementById('load-more-btn');
+  btn.style.display = shownCount < filteredData.length ? 'inline-block' : 'none';
+}
+
+function initExplorer(articles, cards) {
+  explorerData = articles;
+
+  // Build spokesperson color map from cards
+  cards.forEach(c => { spColorMap[c.name] = c.color; });
+
+  // Populate year dropdowns
+  const years = [...new Set(articles.map(a => a.year).filter(Boolean))].sort();
+  const fromSel = document.getElementById('f-year-from');
+  const toSel   = document.getElementById('f-year-to');
+  years.forEach(y => {
+    fromSel.insertAdjacentHTML('beforeend', `<option value="${y}">${y}</option>`);
+    toSel.insertAdjacentHTML('beforeend',   `<option value="${y}">${y}</option>`);
+  });
+  // Default to-year = most recent
+  toSel.value = years[years.length - 1] || '';
+
+  // Populate spokesperson dropdown
+  const spSel = document.getElementById('f-sp');
+  const spokespeople = [...new Set(articles.map(a => a.spokesperson).filter(Boolean))].sort();
+  spokespeople.forEach(s => {
+    spSel.insertAdjacentHTML('beforeend', `<option value="${s}">${s}</option>`);
+  });
+
+  // Event listeners
+  ['f-year-from','f-year-to','f-sp','f-tag'].forEach(id =>
+    document.getElementById(id).addEventListener('change', applyFilters)
+  );
+  document.getElementById('f-search').addEventListener('input', () => {
+    clearTimeout(window._searchTimer);
+    window._searchTimer = setTimeout(applyFilters, 300);
+  });
+  document.getElementById('f-reset').addEventListener('click', () => {
+    document.getElementById('f-year-from').value = '';
+    document.getElementById('f-year-to').value = years[years.length - 1] || '';
+    document.getElementById('f-sp').value = '';
+    document.getElementById('f-tag').value = '';
+    document.getElementById('f-search').value = '';
+    applyFilters();
+  });
+  document.getElementById('load-more-btn').addEventListener('click', showMore);
+
+  // Initial render
+  applyFilters();
+}
+</script>
+</body>
+</html>
