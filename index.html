@@ -137,7 +137,11 @@
     .sp-card .sp-val { font-weight: 600; color: #1a1a2e; }
     .sp-card .sp-era { font-size: 0.65rem; font-weight: 600; background: var(--sp-color, #888); color: #fff; border-radius: 3px; padding: 0.1rem 0.4rem; vertical-align: middle; margin-left: 0.25rem; }
     .sp-card .sp-post { font-size: 0.75rem; color: #555; margin-bottom: 0.45rem; font-style: italic; }
-    .sp-card .sp-note { font-size: 0.73rem; color: #888; margin-top: 0.45rem; line-height: 1.4; border-top: 1px solid #f0ebe4; padding-top: 0.35rem; }
+    .sp-card .sp-note { font-size: 0.73rem; color: #888; margin-top: 0.45rem; line-height: 1.4; border-top: 1px solid #f0ebe4; padding-top: 0.35rem; display: none; }
+    .sp-card .sp-bio-toggle { margin-top: 0.45rem; font-size: 0.72rem; color: #888; cursor: pointer; background: none; border: none; padding: 0; display: flex; align-items: center; gap: 0.25rem; }
+    .sp-card .sp-bio-toggle:hover { color: #444; }
+    .sp-card .sp-bio-toggle .arrow { display: inline-block; transition: transform 0.15s; }
+    .sp-card .sp-bio-toggle.open .arrow { transform: rotate(90deg); }
 
     /* ── Two-column chart layout ── */
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem; }
@@ -1214,6 +1218,7 @@ function initSpCards(cards) {
     const eraBadge = c.era ? `<span class="sp-era">${c.era}</span>` : '';
     const postLine = c.post ? `<div class="sp-post">${c.post}</div>` : '';
     const noteLine = c.note ? `<div class="sp-note">${c.note}</div>` : '';
+    const toggle = c.note ? `<button class="sp-bio-toggle"><span class="arrow">▶</span> Biography</button>` : '';
     div.innerHTML = `
       <div class="sp-name">${c.name} ${eraBadge}</div>
       <div class="sp-years">${c.year_min || '?'} – ${c.year_max || '?'}</div>
@@ -1221,8 +1226,17 @@ function initSpCards(cards) {
       <div class="sp-stat"><span>Exchanges</span><span class="sp-val">${c.n_total.toLocaleString()}</span></div>
       <div class="sp-stat"><span>IO mentions</span><span class="sp-val">${c.n_io}</span></div>
       <div class="sp-stat"><span>Confrontation rate</span><span class="sp-val">${c.conf_rate}%</span></div>
+      ${toggle}
       ${noteLine}
     `;
+    if (c.note) {
+      const btn = div.querySelector('.sp-bio-toggle');
+      const note = div.querySelector('.sp-note');
+      btn.addEventListener('click', () => {
+        const open = btn.classList.toggle('open');
+        note.style.display = open ? 'block' : 'none';
+      });
+    }
     container.appendChild(div);
   });
 }
