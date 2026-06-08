@@ -203,6 +203,39 @@
     }
     .load-more:hover { background: #b5000f; color: white; }
 
+    /* ── Threat chart toggle buttons ── */
+    .threats-toggles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.7rem; align-items: center; }
+    .ttog-btn {
+      padding: 0.22rem 0.75rem; border-radius: 20px;
+      border: 2px solid var(--tc, #888);
+      background: var(--tc, #888); color: #fff;
+      font-size: 0.78rem; font-family: sans-serif; cursor: pointer;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .ttog-btn.muted { background: #fff; color: var(--tc, #555); opacity: 0.65; }
+    .ttog-btn[data-series="all"] { --tc: #333; }
+
+    /* ── Threat map filter panel ── */
+    .threats-map-wrap { display: flex; gap: 0.9rem; align-items: flex-start; margin-top: 0.8rem; }
+    .ttype-panel { display: flex; flex-direction: column; gap: 0.25rem; min-width: 158px; }
+    .ttype-panel-label {
+      font-size: 0.7rem; font-weight: 700; text-transform: uppercase;
+      letter-spacing: 0.08em; color: #888; margin-bottom: 0.3rem; font-family: sans-serif;
+    }
+    .ttype-btn {
+      display: flex; align-items: center; gap: 0.45rem;
+      padding: 0.32rem 0.65rem; border: 1.5px solid #ddd; border-radius: 4px;
+      background: #fff; font-size: 0.8rem; font-family: sans-serif; color: #333;
+      cursor: pointer; text-align: left; transition: all 0.12s;
+    }
+    .ttype-btn:hover { background: #f5f0eb; border-color: #bbb; }
+    .ttype-btn.active { border-color: #555; background: #f0ece7; font-weight: 700; }
+    .ttype-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+    @media (max-width: 640px) {
+      .threats-map-wrap { flex-direction: column; }
+      .ttype-panel { flex-direction: row; flex-wrap: wrap; min-width: unset; }
+    }
+
     /* ── Expandable definitions ── */
     .expand-list { display: flex; flex-direction: column; gap: 0.3rem; margin-top: 1rem; }
     .expand-item { border: 1px solid #e0dbd4; border-radius: 4px; background: white; overflow: hidden; }
@@ -364,6 +397,16 @@
     <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">This section draws on a subset of the MFA corpus where coders identified confrontational exchanges — questions in which a foreign government or actor is framing something as a threat to China, making a demand, or where China has made formal diplomatic representations. The chart below shows how the volume of these exchanges has changed over time.</p>
     <p style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-bottom:1rem;">Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。</p>
 
+    <div class="threats-toggles" id="threats-toggles">
+      <button class="ttog-btn" data-series="all" style="--tc:#333">All</button>
+      <button class="ttog-btn muted" data-series="0" style="--tc:#6d1a36">Active threat</button>
+      <button class="ttog-btn muted" data-series="1" style="--tc:#e8735a">Attacked</button>
+      <button class="ttog-btn muted" data-series="2" style="--tc:#c0291a">Threat</button>
+      <button class="ttog-btn muted" data-series="3" style="--tc:#f4a261">Demand</button>
+      <button class="ttog-btn muted" data-series="4" style="--tc:#e9c46a">Urge</button>
+      <button class="ttog-btn muted" data-series="5" style="--tc:#a8c5da">Request</button>
+      <button class="ttog-btn muted" data-series="6" style="--tc:#457b9d">Representations</button>
+    </div>
     <div class="chart-wrap" style="height:340px;">
       <canvas id="threats-chart"></canvas>
     </div>
@@ -404,8 +447,22 @@
     <h3 style="margin-top:2rem;font-size:1.1rem;">Geographic distribution of pressure
       <span class="zh" style="display:block;font-size:0.85rem;color:#555;font-weight:400;margin-top:3px;">外部压力的地理分布</span>
     </h3>
-    <p style="font-size:0.9rem;color:#555;margin-top:0.5rem;">Which countries appear most often in press conference questions that involve threats, demands, urges, or formal representations? Countries are coloured by total count across the full corpus (2003–2026). Click a country for a breakdown.</p>
-    <div id="threats-map" style="height:420px;border-radius:4px;border:1px solid #ddd;margin-top:0.8rem;"></div>
+    <p style="font-size:0.9rem;color:#555;margin-top:0.5rem;">Which countries appear most often in press conference questions that involve threats, demands, urges, or formal representations? Select a pressure type in the panel to filter the map. Hover a country for a count breakdown.</p>
+    <div class="threats-map-wrap">
+      <div class="ttype-panel" id="ttype-panel">
+        <div class="ttype-panel-label">Filter by type</div>
+        <button class="ttype-btn active" data-type="total"><span class="ttype-dot" style="background:#2471a3;"></span>All types</button>
+        <button class="ttype-btn" data-type="Threat"><span class="ttype-dot" style="background:#c0291a;"></span>Threat</button>
+        <button class="ttype-btn" data-type="Active threat"><span class="ttype-dot" style="background:#6d1a36;"></span>Active threat</button>
+        <button class="ttype-btn" data-type="Demand"><span class="ttype-dot" style="background:#f4a261;"></span>Demand</button>
+        <button class="ttype-btn" data-type="Urge"><span class="ttype-dot" style="background:#e9c46a;"></span>Urge</button>
+        <button class="ttype-btn" data-type="Request"><span class="ttype-dot" style="background:#a8c5da;"></span>Request</button>
+        <button class="ttype-btn" data-type="Representations"><span class="ttype-dot" style="background:#457b9d;"></span>Representations</button>
+        <button class="ttype-btn" data-type="China attacked"><span class="ttype-dot" style="background:#e8735a;"></span>Attacked/criticised</button>
+        <button class="ttype-btn" data-type="China protested"><span class="ttype-dot" style="background:#b0b0b0;"></span>Protested</button>
+      </div>
+      <div id="threats-map" style="flex:1;height:420px;border-radius:4px;border:1px solid #ddd;min-width:0;"></div>
+    </div>
     <p class="map-note" style="margin-top:0.5rem;">Countries are coded from the question text (<em>q_loc</em> field) — they reflect which countries journalists associated with threatening or confrontational framing, not necessarily which country initiated the action. The United States and Taiwan account for the largest share by a wide margin.</p>
   </div>
 </section>
@@ -819,51 +876,73 @@ function initThreatsMap(byCountry) {
     subdomains: 'abcd', maxZoom: 19
   }).addTo(tmap);
 
-  function getThreatColor(total) {
-    if (!total || total === 0) return '#f0eeea';
-    if (total < 10)  return '#d4e6f1';
-    if (total < 30)  return '#7fb3d3';
-    if (total < 80)  return '#2471a3';
-    if (total < 200) return '#1a5276';
-    return '#0e2f44';
+  let currentType = 'total';
+  let threatGeoLayer = null;
+
+  // Colour scales per type — each uses a 5-step sequential blue-to-dark palette
+  const COLOR_SCALES = {
+    total:          [10, 30,  80,  200, '#d4e6f1','#7fb3d3','#2471a3','#1a5276','#0e2f44'],
+    Threat:         [5,  20,  60,  150, '#fde8e8','#f5a0a0','#c0291a','#8b0000','#4a0000'],
+    'Active threat':[2,  8,   20,  60,  '#f9e8ef','#e0a0b8','#9b2856','#6d1a36','#3d0a1a'],
+    Demand:         [2,  8,   20,  50,  '#fff3e0','#ffd599','#f4a261','#c06000','#703000'],
+    Urge:           [3,  12,  30,  80,  '#fffbe0','#ffe680','#d4a800','#9a7200','#5a4200'],
+    Request:        [1,  4,   10,  25,  '#e8f0f8','#b0cce0','#6699cc','#336699','#003366'],
+    Representations:[3,  12,  30,  80,  '#e8eef5','#a0b8d0','#5580a8','#2a5080','#0a2040'],
+    'China attacked':[1, 3,   8,   20,  '#fef0e4','#f5cc99','#e0893a','#a05000','#5a2800'],
+    'China protested':[1,3,   8,   20,  '#f5f5f5','#cccccc','#888888','#555555','#222222'],
+  };
+
+  function getColor(iso, type) {
+    const d = byCountry[iso];
+    const val = d ? (d[type] || 0) : 0;
+    if (!val) return '#f0eeea';
+    const s = COLOR_SCALES[type] || COLOR_SCALES.total;
+    if (val < s[0]) return s[4];
+    if (val < s[1]) return s[5];
+    if (val < s[2]) return s[6];
+    if (val < s[3]) return s[7];
+    return s[8];
+  }
+
+  function buildTooltip(iso, name, type) {
+    const d = byCountry[iso];
+    if (!d) return `<strong>${name}</strong><br><em>No coded exchanges</em>`;
+    const LABELS = {
+      total: 'Total (all types)', Threat: 'Threat', 'Active threat': 'Active threat',
+      Demand: 'Demand', Urge: 'Urge', Request: 'Request',
+      Representations: 'Representations', 'China attacked': 'Attacked/criticised',
+      'China protested': 'Protested',
+    };
+    let tip = `<strong>${name}</strong>`;
+    if (type === 'total') {
+      tip += `<br>Total: <b>${d.total}</b>`;
+      const parts = ['Threat','Active threat','Demand','Urge','Request','Representations','China attacked','China protested'];
+      parts.forEach(k => { if (d[k]) tip += `<br>${LABELS[k]}: ${d[k]}`; });
+    } else {
+      tip += `<br>${LABELS[type]}: <b>${d[type] || 0}</b>`;
+      tip += `<br><span style="color:#888;font-size:0.85em">Total all types: ${d.total}</span>`;
+    }
+    return tip;
   }
 
   fetch('data/world.geojson')
     .then(r => r.json())
     .then(geo => {
-      L.geoJSON(geo, {
-        style: feature => {
-          const iso = feature.properties['ISO3166-1-Alpha-3'];
-          const d = byCountry[iso];
-          return {
-            fillColor: getThreatColor(d ? d.total : 0),
-            weight: 0.5, opacity: 1, color: '#aaa', fillOpacity: 0.85
-          };
-        },
+      threatGeoLayer = L.geoJSON(geo, {
+        style: feature => ({
+          fillColor: getColor(feature.properties['ISO3166-1-Alpha-3'], currentType),
+          weight: 0.5, opacity: 1, color: '#aaa', fillOpacity: 0.85
+        }),
         onEachFeature: (feature, layer) => {
           layer.on({
             mouseover: e => {
               const iso = feature.properties['ISO3166-1-Alpha-3'];
-              const name = feature.properties.name || 'Unknown';
-              const d = byCountry[iso];
-              let tip = `<strong>${name}</strong>`;
-              if (d) {
-                tip += `<br>Total: ${d.total}`;
-                if (d.Threat) tip += `<br>Threat: ${d.Threat}`;
-                if (d.Demand) tip += `<br>Demand: ${d.Demand}`;
-                if (d.Urge) tip += `<br>Urge: ${d.Urge}`;
-                if (d.Representations) tip += `<br>Representations: ${d.Representations}`;
-              } else {
-                tip += '<br>No confrontational exchanges coded';
-              }
-              layer.bindTooltip(tip).openTooltip(e.latlng);
+              layer.bindTooltip(buildTooltip(iso, feature.properties.name || 'Unknown', currentType)).openTooltip(e.latlng);
               layer.setStyle({ weight: 2, color: '#333' });
             },
             mouseout: () => {
-              const iso = feature.properties['ISO3166-1-Alpha-3'];
-              const d = byCountry[iso];
               layer.setStyle({
-                fillColor: getThreatColor(d ? d.total : 0),
+                fillColor: getColor(feature.properties['ISO3166-1-Alpha-3'], currentType),
                 weight: 0.5, opacity: 1, color: '#aaa', fillOpacity: 0.85
               });
               layer.closeTooltip();
@@ -872,6 +951,21 @@ function initThreatsMap(byCountry) {
         }
       }).addTo(tmap);
     });
+
+  // Wire filter panel buttons
+  document.querySelectorAll('#ttype-panel .ttype-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentType = btn.dataset.type;
+      document.querySelectorAll('#ttype-panel .ttype-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      if (threatGeoLayer) {
+        threatGeoLayer.setStyle(feature => ({
+          fillColor: getColor(feature.properties['ISO3166-1-Alpha-3'], currentType),
+          weight: 0.5, opacity: 1, color: '#aaa', fillOpacity: 0.85
+        }));
+      }
+    });
+  });
 }
 
 // ── Threats Chart ────────────────────────────────────────────────────────
@@ -880,7 +974,6 @@ function initThreatsChart(threats) {
   const ctx = document.getElementById('threats-chart').getContext('2d');
   const labels = threats.map(d => d.year);
 
-  // Bar series — stacked; note a single exchange can fall into multiple categories
   const series = [
     { key: 'Active threat',   label: 'Active threat',           color: '#6d1a36' },
     { key: 'China attacked',  label: 'Attacked / criticised',   color: '#e8735a' },
@@ -900,7 +993,6 @@ function initThreatsChart(threats) {
     borderWidth: 0,
   }));
 
-  // Dashed line showing actual distinct exchange count (bars sum to more due to multi-coding)
   const totalLineDataset = {
     type: 'line',
     label: 'Total exchanges (distinct)',
@@ -915,23 +1007,17 @@ function initThreatsChart(threats) {
     order: 0,
   };
 
-  new Chart(ctx, {
+  const chart = new Chart(ctx, {
     type: 'bar',
-    data: {
-      labels,
-      datasets: [...barDatasets, totalLineDataset]
-    },
+    data: { labels, datasets: [...barDatasets, totalLineDataset] },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: {
-          display: true,
-          position: 'top',
-          labels: { font: { size: 11 }, boxWidth: 14, padding: 10 }
-        },
+        legend: { display: false },   // replaced by custom toggle buttons
         tooltip: {
           mode: 'index',
+          filter: item => !item.dataset.hidden,
           callbacks: {
             title: ctx => 'Year: ' + ctx[0].label,
             label: ctx => `${ctx.dataset.label}: ${ctx.raw}`
@@ -939,19 +1025,53 @@ function initThreatsChart(threats) {
         }
       },
       scales: {
-        x: {
-          stacked: true,
-          grid: { display: false },
-          ticks: { font: { size: 11 } }
-        },
+        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
         y: {
-          stacked: true,
-          beginAtZero: true,
+          stacked: true, beginAtZero: true,
           ticks: { font: { size: 11 } },
           title: { display: true, text: 'Annual count (bars multi-count; line = exchanges)', font: { size: 11 } }
         }
       }
     }
+  });
+
+  // ── Solo-select toggle logic ──────────────────────────────────────────
+  // "All" = all bar series visible (total line always visible)
+  // Click a series button = show only that series
+  // Click same series or "All" = restore all
+
+  let soloIdx = null;   // null = all; 0-6 = index into barDatasets
+
+  function applyView() {
+    chart.data.datasets.forEach((ds, i) => {
+      if (i === barDatasets.length) return;  // total line always on
+      ds.hidden = (soloIdx !== null && i !== soloIdx);
+    });
+    chart.update('none');
+
+    // Update button styles
+    document.querySelectorAll('#threats-toggles .ttog-btn').forEach(btn => {
+      const s = btn.dataset.series;
+      if (s === 'all') {
+        btn.classList.toggle('muted', soloIdx !== null);
+      } else {
+        const idx = parseInt(s);
+        btn.classList.toggle('muted', soloIdx !== null && idx !== soloIdx);
+      }
+    });
+  }
+
+  document.querySelectorAll('#threats-toggles .ttog-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const s = btn.dataset.series;
+      if (s === 'all') {
+        soloIdx = null;
+      } else {
+        const idx = parseInt(s);
+        soloIdx = (soloIdx === idx) ? null : idx;  // toggle: click same = back to all
+      }
+      applyView();
+    });
   });
 }
 

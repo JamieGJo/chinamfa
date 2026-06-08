@@ -555,4 +555,83 @@ with open(os.path.join(OUT_DIR, "articles.json"), "w") as f:
 size_mb = os.path.getsize(os.path.join(OUT_DIR, "articles.json")) / 1e6
 print(f"  wrote articles.json ({len(articles):,} records, {size_mb:.1f} MB)")
 
+# ── F: Threats by year ────────────────────────────────────────────────────────
+print("Building threats_by_year …")
+
+ALL_CONF_COLS = ["Threat", "Active threat", "Demand", "Urge", "Request",
+                 "Representations", "China attacked", "China protested"]
+
+tby_years = sorted(df["year_clean"].dropna().unique())
+threats_by_year = []
+for yr in tby_years:
+    rows = df[df["year_clean"] == yr]
+    conf_mask = rows[ALL_CONF_COLS].notna().any(axis=1)
+    entry = {"year": int(yr), "total": int(conf_mask.sum())}
+    for col in ALL_CONF_COLS:
+        entry[col] = int(rows[col].notna().sum()) if col in rows.columns else 0
+    threats_by_year.append(entry)
+
+with open(os.path.join(OUT_DIR, "threats_by_year.json"), "w") as f:
+    json.dump(threats_by_year, f)
+print(f"  wrote threats_by_year.json ({len(threats_by_year)} years)")
+
+# ── G: Threats by country ──────────────────────────────────────────────────────
+print("Building threats_by_country …")
+
+CONF_ISO_MAP = {
+    # Abbreviations / aliases used in NLP-extracted q_loc
+    'US':'USA','U.S.':'USA','USA':'USA','United States':'USA','America':'USA',
+    'UK':'GBR','U.K.':'GBR','Britain':'GBR','United Kingdom':'GBR',
+    'DPRK':'PRK','North Korea':'PRK',
+    'ROK':'KOR','South Korea':'KOR',
+    'Philippine':'PHL','Philippines':'PHL',
+    'Japan':'JPN','Taiwan':'TWN','Russia':'RUS','Hong Kong':'HKG',
+    'India':'IND','Pakistan':'PAK','Xinjiang':'CHN','Tibet':'CHN','Macao':'MAC',
+    'Afghanistan':'AFG','Iran':'IRN','Ukraine':'UKR','Australia':'AUS',
+    'Germany':'DEU','France':'FRA','Indonesia':'IDN','Palestine':'PSE',
+    'Gaza':'PSE','Syria':'SYR','Iraq':'IRQ','Canada':'CAN',
+    'Israel':'ISR','Myanmar':'MMR','Burma':'MMR',
+    'Sri Lanka':'LKA','Vietnam':'VNM','Libya':'LBY','Sudan':'SDN',
+    'Egypt':'EGY','Saudi Arabia':'SAU','Turkey':'TUR','Türkiye':'TUR',
+    'Brazil':'BRA','South Africa':'ZAF','Cuba':'CUB','Venezuela':'VEN',
+    'Nepal':'NPL','Cambodia':'KHM','Singapore':'SGP','Thailand':'THA',
+    'Malaysia':'MYS','Kazakhstan':'KAZ','Italy':'ITA','Spain':'ESP',
+    'Nigeria':'NGA','Kenya':'KEN','Ethiopia':'ETH','Zimbabwe':'ZWE',
+    'Angola':'AGO','DR Congo':'COD','Serbia':'SRB','Panama':'PAN',
+    'Bangladesh':'BGD','Mongolia':'MNG','Laos':'LAO','Uzbekistan':'UZB',
+    'Hungary':'HUN','Solomon Islands':'SLB','Fiji':'FJI','Tonga':'TON',
+    'Vanuatu':'VUT','Papua New Guinea':'PNG','Maldives':'MDV','Bhutan':'BTN',
+    'UAE':'ARE','Qatar':'QAT','Kuwait':'KWT','Jordan':'JOR','Lebanon':'LBN',
+    'Yemen':'YEM','Morocco':'MAR','Tunisia':'TUN','Algeria':'DZA',
+    'Belarus':'BLR','Azerbaijan':'AZE','Armenia':'ARM','Lithuania':'LTU',
+    'Poland':'POL','Czech Republic':'CZE','Sweden':'SWE','Finland':'FIN',
+    'Norway':'NOR','Denmark':'DNK','Netherlands':'NLD','Belgium':'BEL',
+    'Portugal':'PRT','Greece':'GRC','Austria':'AUT','Switzerland':'CHE',
+    'Ireland':'IRL','Croatia':'HRV','Seychelles':'SYC','Albania':'ALB',
+    'Niger':'NER','Kosovo':'XKX',
+}
+
+threats_by_country = {}
+conf_rows = df[df[ALL_CONF_COLS].notna().any(axis=1)]
+for _, row in conf_rows.iterrows():
+    q_raw = str(row.get("q_loc", ""))
+    if q_raw in ("nan", ""):
+        continue
+    for loc in [l.strip() for l in q_raw.split(";") if l.strip() not in ("-", "nan", "")]:
+        iso = CONF_ISO_MAP.get(loc)
+        if not iso:
+            continue
+        if iso not in threats_by_country:
+            threats_by_country[iso] = {"total": 0}
+            for c in ALL_CONF_COLS:
+                threats_by_country[iso][c] = 0
+        threats_by_country[iso]["total"] += 1
+        for c in ALL_CONF_COLS:
+            if c in conf_rows.columns and pd.notna(row.get(c)):
+                threats_by_country[iso][c] += 1
+
+with open(os.path.join(OUT_DIR, "threats_by_country.json"), "w") as f:
+    json.dump(threats_by_country, f)
+print(f"  wrote threats_by_country.json ({len(threats_by_country)} countries)")
+
 print("\nDone.")
