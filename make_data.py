@@ -279,6 +279,14 @@ TOP_SP = (
 # exclude 'missing' and '-' placeholders
 TOP_SP = [s for s in TOP_SP if s not in ("missing", "-")]
 
+# Sort by most recent year active (descending) so chart legend and cards read newest → oldest
+_sp_year_max = (
+    df[df["spokesperson"].isin(TOP_SP)]
+    .groupby("spokesperson")["year_clean"]
+    .max()
+)
+TOP_SP = sorted(TOP_SP, key=lambda sp: int(_sp_year_max.get(sp, 0)), reverse=True)
+
 sp_yr = (
     df[df["spokesperson"].isin(TOP_SP)]
     .groupby(["year_clean", "spokesperson"])
