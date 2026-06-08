@@ -466,7 +466,6 @@
         <button class="ttype-btn" data-type="Request"><span class="ttype-dot" style="background:#a8c5da;"></span>Request</button>
         <button class="ttype-btn" data-type="Representations"><span class="ttype-dot" style="background:#457b9d;"></span>Representations</button>
         <button class="ttype-btn" data-type="China attacked"><span class="ttype-dot" style="background:#e8735a;"></span>Attacked/criticised</button>
-        <button class="ttype-btn" data-type="China protested"><span class="ttype-dot" style="background:#b0b0b0;"></span>Protested</button>
       </div>
       <div id="threats-map" style="flex:1;height:420px;border-radius:4px;border:1px solid #ddd;min-width:0;"></div>
     </div>
@@ -481,14 +480,13 @@
     <h2>Mentions of "international order" by quarter
       <span class="zh">按季度统计的"国际秩序"提及频次</span>
     </h2>
-    <p style="font-size:0.9rem;color:#555;">How often do MFA spokespeople mention the international order — and in what context? Bars are stacked by framing: most mentions are in diplomatic or explanatory contexts (grey); coloured segments mark exchanges that were also coded for confrontation. Select a framing below to isolate it. The 2025 surge is the largest on record, with sentiment turning sharply negative (quarterly average −0.38 in Q4 2025) as IO language shifted from affirmative to defensive.</p>
-    <div class="threats-toggles" id="io-toggles">
-      <button class="ttog-btn" data-io="all" style="--tc:#555">All</button>
-      <button class="ttog-btn muted" data-io="io_only" style="--tc:#aaa">IO only</button>
-      <button class="ttog-btn muted" data-io="urge" style="--tc:#e9c46a">Urge</button>
-      <button class="ttog-btn muted" data-io="representations" style="--tc:#457b9d">Representations</button>
-      <button class="ttog-btn muted" data-io="demand" style="--tc:#f4a261">Demand</button>
-      <button class="ttog-btn muted" data-io="threat" style="--tc:#c0291a">Threat</button>
+    <p style="font-size:0.9rem;color:#555;">How often do MFA spokespeople mention the international order? Bars show quarterly mention counts, coloured by mean VADER sentiment of those exchanges. The 2025 surge is the largest on record, with sentiment turning sharply negative.</p>
+    <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.6rem;font-size:0.75rem;color:#555;align-items:center;">
+      <span><span style="display:inline-block;width:10px;height:10px;background:#2166ac;border-radius:2px;margin-right:4px;"></span>Positive (≥0.97)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#74add1;border-radius:2px;margin-right:4px;"></span>Broadly positive (≥0.89)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#e0a060;border-radius:2px;margin-right:4px;"></span>Mixed (≥0.68)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#d73027;border-radius:2px;margin-right:4px;"></span>Negative (&lt;0.68)</span>
+      <span><span style="display:inline-block;width:10px;height:10px;background:#ccc;border-radius:2px;margin-right:4px;"></span>No data</span>
     </div>
     <div class="chart-wrap" style="height:300px;">
       <canvas id="trend-chart"></canvas>
@@ -820,99 +818,70 @@ function onEachFeature(feature, layer) {
 function initChart(quarterly) {
   const ctx = document.getElementById('trend-chart').getContext('2d');
 
-  const IO_SERIES = [
-    { key: 'io_only',        label: 'IO only (no confrontation)', color: '#b0a898' },
-    { key: 'urge',           label: 'IO + Urge',                  color: '#e9c46a' },
-    { key: 'representations',label: 'IO + Representations',       color: '#457b9d' },
-    { key: 'demand',         label: 'IO + Demand',                color: '#f4a261' },
-    { key: 'threat',         label: 'IO + Threat',                color: '#c0291a' },
-  ];
+  // Sentiment quartile thresholds (VADER compound score)
+  function sentColor(s) {
+    if (s === null || s === undefined) return '#ccc';
+    if (s >= 0.968) return '#2166ac';  // positive
+    if (s >= 0.889) return '#74add1';  // broadly positive
+    if (s >= 0.677) return '#e0a060';  // mixed
+    return '#d73027';                   // negative
+  }
 
   const labels = quarterly.map(d => d.quarter);
 
-  const datasets = IO_SERIES.map(s => ({
-    label: s.label,
-    data: quarterly.map(d => d[s.key] || 0),
-    backgroundColor: s.color,
-    stack: 'io',
-    borderWidth: 0,
-  }));
-
-  const chart = new Chart(ctx, {
+  new Chart(ctx, {
     type: 'bar',
-    data: { labels, datasets },
+    data: {
+      labels,
+      datasets: [{
+        label: 'IO mentions',
+        data: quarterly.map(d => d.n_io),
+        backgroundColor: quarterly.map(d => sentColor(d.sentiment)),
+        borderWidth: 0,
+      }]
+    },
     options: {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
         tooltip: {
-          mode: 'index',
-          filter: item => !item.dataset.hidden,
           callbacks: {
             title: ctx => ctx[0].label,
-            label: ctx => `${ctx.dataset.label}: ${ctx.raw}`,
-            afterBody: ctx => {
+            label: ctx => {
               const d = quarterly[ctx[0].dataIndex];
-              const sent = d.sentiment !== null ? d.sentiment.toFixed(2) : 'n/a';
-              return [`Total IO: ${d.n_io}  |  Rate: ${d.io_rate.toFixed(1)}%  |  Sentiment: ${sent}`];
+              const sent = d.sentiment !== null ? d.sentiment.toFixed(3) : 'n/a';
+              return [`Mentions: ${d.n_io}`, `Rate: ${d.io_rate.toFixed(1)}% of ${d.n_total} exchanges`, `Sentiment: ${sent}`];
             }
           }
         }
       },
       scales: {
         x: {
-          stacked: true,
           grid: { display: false },
           ticks: {
             font: { size: 10 },
+            maxRotation: 0,
+            autoSkip: false,
             callback: (val, idx) => {
-              if (idx === 0) return quarterly[0].quarter.slice(0, 4);
-              const yr  = quarterly[idx].quarter.slice(0, 4);
-              const prv = quarterly[idx - 1].quarter.slice(0, 4);
-              return yr !== prv ? yr : '';
+              const q = quarterly[idx].quarter;
+              const yr = q.slice(0, 4);
+              // Label on Q1, or first occurrence of that year
+              if (idx === 0) return yr;
+              const prevYr = quarterly[idx - 1].quarter.slice(0, 4);
+              if (yr === prevYr) return '';
+              // Only show every other year to avoid crowding
+              return parseInt(yr) % 2 === 0 ? yr : '';
             }
           }
         },
         y: {
-          stacked: true,
           beginAtZero: true,
           ticks: { font: { size: 11 } },
           title: { display: true, text: 'IO mentions per quarter', font: { size: 11 } }
         }
       }
     }
-  });
-
-  // Solo-select toggles (same pattern as threats chart)
-  let soloKey = null;
-  const KEY_ORDER = IO_SERIES.map(s => s.key);
-
-  function applyIOView() {
-    chart.data.datasets.forEach((ds, i) => {
-      ds.hidden = soloKey !== null && KEY_ORDER[i] !== soloKey;
-    });
-    chart.update('none');
-    document.querySelectorAll('#io-toggles .ttog-btn').forEach(btn => {
-      const k = btn.dataset.io;
-      if (k === 'all') {
-        btn.classList.toggle('muted', soloKey !== null);
-      } else {
-        btn.classList.toggle('muted', soloKey !== null && k !== soloKey);
-      }
-    });
-  }
-
-  document.querySelectorAll('#io-toggles .ttog-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-      const k = btn.dataset.io;
-      if (k === 'all') {
-        soloKey = null;
-      } else {
-        soloKey = (soloKey === k) ? null : k;
-      }
-      applyIOView();
-    });
   });
 }
 
