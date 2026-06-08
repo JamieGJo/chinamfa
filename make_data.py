@@ -662,8 +662,11 @@ def assign_framing(row):
 
 io_df["framing"] = io_df.apply(assign_framing, axis=1)
 
-# Aggregate by quarter
-all_quarters = sorted(io_df["quarter"].dropna().unique())
+# Build complete quarter range from first to last date in full corpus
+df["_date_p"] = pd.to_datetime(df["date"], errors="coerce")
+q_min = df["_date_p"].min().to_period("Q")
+q_max = df["_date_p"].max().to_period("Q")
+all_quarters = [str(q_min + i) for i in range((q_max - q_min).n + 1)]
 FRAMINGS = ["IO only", "Urge", "Representations", "Demand", "Threat", "Active threat"]
 
 quarterly_io = []

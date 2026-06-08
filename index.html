@@ -834,52 +834,9 @@ function initChart(quarterly) {
     borderWidth: 0,
   }));
 
-  // Leadership transition lines — drawn between bars when the exact quarter has no data
-  const TRANSITIONS = [
-    { numeric: 2012.75, label: 'Xi Jinping →' },  // Nov 2012
-  ];
-
-  function qToNum(q) {
-    // '2013Q2' → 2013.25, etc.
-    const [yr, qn] = q.split('Q');
-    return +yr + (+qn - 1) / 4;
-  }
-
-  const leaderLinePlugin = {
-    id: 'leaderLines',
-    afterDraw(chart) {
-      const { ctx: c, scales: { x, y } } = chart;
-      const nums = labels.map(qToNum);
-      TRANSITIONS.forEach(({ numeric, label }) => {
-        // Find the last bar index whose quarter is before the transition
-        let afterIdx = nums.findIndex(n => n >= numeric);
-        if (afterIdx === -1) afterIdx = nums.length;
-        // Draw between bar at afterIdx-1 and afterIdx
-        const x0 = afterIdx > 0          ? x.getPixelForValue(afterIdx - 1) : x.left;
-        const x1 = afterIdx < nums.length ? x.getPixelForValue(afterIdx)     : x.right;
-        const xPos = (x0 + x1) / 2;
-        c.save();
-        c.setLineDash([4, 4]);
-        c.strokeStyle = '#666';
-        c.lineWidth = 1.5;
-        c.beginPath();
-        c.moveTo(xPos, y.top);
-        c.lineTo(xPos, y.bottom);
-        c.stroke();
-        c.setLineDash([]);
-        c.fillStyle = '#555';
-        c.font = '10px sans-serif';
-        c.textAlign = 'left';
-        c.fillText(label, xPos + 3, y.top + 13);
-        c.restore();
-      });
-    }
-  };
-
   const chart = new Chart(ctx, {
     type: 'bar',
     data: { labels, datasets },
-    plugins: [leaderLinePlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
@@ -906,8 +863,10 @@ function initChart(quarterly) {
           ticks: {
             font: { size: 10 },
             callback: (val, idx) => {
-              const q = quarterly[idx].quarter;
-              return q.endsWith('Q1') ? q.slice(0, 4) : '';
+              if (idx === 0) return quarterly[0].quarter.slice(0, 4);
+              const yr  = quarterly[idx].quarter.slice(0, 4);
+              const prv = quarterly[idx - 1].quarter.slice(0, 4);
+              return yr !== prv ? yr : '';
             }
           }
         },
@@ -1168,10 +1127,46 @@ function initThreatsChart(threats) {
 
 function initSpChart(spByYear) {
   const ctx = document.getElementById('sp-chart').getContext('2d');
+  const years = spByYear.years;
+
+  // Dotted lines between years for leadership transitions
+  const SP_TRANSITIONS = [
+    { afterYear: '2002', label: 'Hu Jintao →' },
+    { afterYear: '2012', label: 'Xi Jinping →' },
+  ];
+
+  const spLeaderPlugin = {
+    id: 'spLeaderLines',
+    afterDraw(chart) {
+      const { ctx: c, scales: { x, y } } = chart;
+      SP_TRANSITIONS.forEach(({ afterYear, label }) => {
+        const idx = years.findIndex(y => String(y) === afterYear);
+        if (idx === -1 || idx === years.length - 1) return;
+        const x0 = x.getPixelForValue(idx);
+        const x1 = x.getPixelForValue(idx + 1);
+        const xPos = (x0 + x1) / 2;
+        c.save();
+        c.setLineDash([4, 4]);
+        c.strokeStyle = '#666';
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.moveTo(xPos, y.top);
+        c.lineTo(xPos, y.bottom);
+        c.stroke();
+        c.setLineDash([]);
+        c.fillStyle = '#555';
+        c.font = '10px sans-serif';
+        c.textAlign = 'left';
+        c.fillText(label, xPos + 3, y.top + 13);
+        c.restore();
+      });
+    }
+  };
+
   new Chart(ctx, {
     type: 'bar',
     data: {
-      labels: spByYear.years,
+      labels: years,
       datasets: spByYear.series.map(s => ({
         label: s.name,
         data: s.data,
@@ -1180,6 +1175,7 @@ function initSpChart(spByYear) {
         borderWidth: 0,
       }))
     },
+    plugins: [spLeaderPlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
