@@ -834,9 +834,52 @@ function initChart(quarterly) {
     borderWidth: 0,
   }));
 
+  // Leadership transition lines — drawn between bars when the exact quarter has no data
+  const TRANSITIONS = [
+    { numeric: 2012.75, label: 'Xi Jinping →' },  // Nov 2012
+  ];
+
+  function qToNum(q) {
+    // '2013Q2' → 2013.25, etc.
+    const [yr, qn] = q.split('Q');
+    return +yr + (+qn - 1) / 4;
+  }
+
+  const leaderLinePlugin = {
+    id: 'leaderLines',
+    afterDraw(chart) {
+      const { ctx: c, scales: { x, y } } = chart;
+      const nums = labels.map(qToNum);
+      TRANSITIONS.forEach(({ numeric, label }) => {
+        // Find the last bar index whose quarter is before the transition
+        let afterIdx = nums.findIndex(n => n >= numeric);
+        if (afterIdx === -1) afterIdx = nums.length;
+        // Draw between bar at afterIdx-1 and afterIdx
+        const x0 = afterIdx > 0          ? x.getPixelForValue(afterIdx - 1) : x.left;
+        const x1 = afterIdx < nums.length ? x.getPixelForValue(afterIdx)     : x.right;
+        const xPos = (x0 + x1) / 2;
+        c.save();
+        c.setLineDash([4, 4]);
+        c.strokeStyle = '#666';
+        c.lineWidth = 1.5;
+        c.beginPath();
+        c.moveTo(xPos, y.top);
+        c.lineTo(xPos, y.bottom);
+        c.stroke();
+        c.setLineDash([]);
+        c.fillStyle = '#555';
+        c.font = '10px sans-serif';
+        c.textAlign = 'left';
+        c.fillText(label, xPos + 3, y.top + 13);
+        c.restore();
+      });
+    }
+  };
+
   const chart = new Chart(ctx, {
     type: 'bar',
     data: { labels, datasets },
+    plugins: [leaderLinePlugin],
     options: {
       responsive: true,
       maintainAspectRatio: false,
