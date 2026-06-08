@@ -527,6 +527,7 @@ def expand_field(series):
 
 q_org_vals = expand_field(df["q_org"])
 top_q_org = q_org_vals.value_counts().head(20)
+_conf_by_org_tmp = {}  # filled below after conf_by_org is built
 q_org_list = [{"label": k, "n": int(v)} for k, v in top_q_org.items()
               if k not in ("nan", "-", "")]
 
@@ -559,6 +560,11 @@ for org in [x["label"] for x in q_org_list[:15]]:
         "n_conf": int(n_conf),
         "conf_rate": round(float(n_conf / len(org_rows) * 100), 1),
     })
+
+# Back-fill conf_rate into q_org_list
+_conf_rate_map = {d["org"]: d["conf_rate"] for d in conf_by_org}
+for item in q_org_list:
+    item["conf_rate"] = _conf_rate_map.get(item["label"], 0.0)
 
 topics = {
     "top_q_org": q_org_list,

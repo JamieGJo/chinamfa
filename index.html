@@ -523,7 +523,7 @@
     <div class="two-col" style="margin-top:1.5rem;">
       <div>
         <div class="col-label">Top organisations in questions</div>
-        <p style="font-size:0.82rem;color:#777;font-family:sans-serif;margin-bottom:0.5rem;">Bar = total mentions; dot = confrontation rate</p>
+        <p style="font-size:0.82rem;color:#777;font-family:sans-serif;margin-bottom:0.5rem;">Bar length = total question mentions; colour = confrontation rate (darker = higher)</p>
         <div style="position:relative;height:340px;">
           <canvas id="orgs-chart"></canvas>
         </div>
@@ -1244,6 +1244,16 @@ function initTopicsCharts(topicsData, pressData) {
   // Organisations chart (horizontal bar)
   const orgs = topicsData.top_q_org.slice(0, 14);
   const orgCtx = document.getElementById('orgs-chart').getContext('2d');
+
+  function orgConfColor(rate) {
+    if (rate >= 10) return '#8b0000';
+    if (rate >= 8)  return '#c0291a';
+    if (rate >= 6)  return '#e05c45';
+    if (rate >= 4)  return '#f99981';
+    if (rate > 0)   return '#fdd5cc';
+    return '#d0dff0';  // zero conf rate = blue
+  }
+
   new Chart(orgCtx, {
     type: 'bar',
     data: {
@@ -1251,7 +1261,7 @@ function initTopicsCharts(topicsData, pressData) {
       datasets: [{
         label: 'Mentions in questions',
         data: orgs.map(d => d.n),
-        backgroundColor: '#2166ac',
+        backgroundColor: orgs.map(d => orgConfColor(d.conf_rate || 0)),
         borderWidth: 0,
       }]
     },
@@ -1261,7 +1271,15 @@ function initTopicsCharts(topicsData, pressData) {
       maintainAspectRatio: false,
       plugins: {
         legend: { display: false },
-        tooltip: { callbacks: { label: ctx => `${ctx.raw.toLocaleString()} question mentions` } }
+        tooltip: {
+          callbacks: {
+            label: ctx => {
+              const d = orgs[ctx.dataIndex];
+              const cr = d.conf_rate != null ? `${d.conf_rate}% confrontational` : 'no confrontation data';
+              return [`${ctx.raw.toLocaleString()} question mentions`, cr];
+            }
+          }
+        }
       },
       scales: {
         x: { beginAtZero: true, ticks: { font: { size: 10 } } },
