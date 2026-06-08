@@ -480,13 +480,13 @@
     <h2>Mentions of "international order" by quarter
       <span class="zh">按季度统计的"国际秩序"提及频次</span>
     </h2>
-    <p style="font-size:0.9rem;color:#555;">How often do MFA spokespeople mention the international order? Bars show quarterly mention counts, coloured by mean VADER sentiment of those exchanges. The 2025 surge is the largest on record, with sentiment turning sharply negative.</p>
+    <p style="font-size:0.9rem;color:#555;">Grey bars show quarterly mention counts (left axis). The coloured line tracks mean VADER sentiment (right axis, 0–1), changing colour by quartile. The 2025 surge is the largest on record, with sentiment turning sharply negative.</p>
     <div style="display:flex;gap:1rem;flex-wrap:wrap;margin-bottom:0.6rem;font-size:0.75rem;color:#555;align-items:center;">
-      <span><span style="display:inline-block;width:10px;height:10px;background:#2166ac;border-radius:2px;margin-right:4px;"></span>Positive (≥0.97)</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#74add1;border-radius:2px;margin-right:4px;"></span>Broadly positive (≥0.89)</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#e0a060;border-radius:2px;margin-right:4px;"></span>Mixed (≥0.68)</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#d73027;border-radius:2px;margin-right:4px;"></span>Negative (&lt;0.68)</span>
-      <span><span style="display:inline-block;width:10px;height:10px;background:#ccc;border-radius:2px;margin-right:4px;"></span>No data</span>
+      <span style="font-weight:600;">Sentiment line:</span>
+      <span><span style="display:inline-block;width:18px;height:3px;background:#2166ac;margin-right:4px;vertical-align:middle;"></span>Positive (≥0.97)</span>
+      <span><span style="display:inline-block;width:18px;height:3px;background:#74add1;margin-right:4px;vertical-align:middle;"></span>Broadly positive (≥0.89)</span>
+      <span><span style="display:inline-block;width:18px;height:3px;background:#e0a060;margin-right:4px;vertical-align:middle;"></span>Mixed (≥0.68)</span>
+      <span><span style="display:inline-block;width:18px;height:3px;background:#d73027;margin-right:4px;vertical-align:middle;"></span>Negative (&lt;0.68)</span>
     </div>
     <div class="chart-wrap" style="height:300px;">
       <canvas id="trend-chart"></canvas>
@@ -818,31 +818,60 @@ function onEachFeature(feature, layer) {
 function initChart(quarterly) {
   const ctx = document.getElementById('trend-chart').getContext('2d');
 
-  // Sentiment quartile thresholds (VADER compound score)
   function sentColor(s) {
-    if (s === null || s === undefined) return '#ccc';
-    if (s >= 0.968) return '#2166ac';  // positive
-    if (s >= 0.889) return '#74add1';  // broadly positive
-    if (s >= 0.677) return '#e0a060';  // mixed
-    return '#d73027';                   // negative
+    if (s === null || s === undefined) return '#aaa';
+    if (s >= 0.968) return '#2166ac';
+    if (s >= 0.889) return '#74add1';
+    if (s >= 0.677) return '#e0a060';
+    return '#d73027';
   }
 
   const labels = quarterly.map(d => d.quarter);
+
+  const xTickCb = (val, idx) => {
+    if (idx === 0) return quarterly[0].quarter.slice(0, 4);
+    const yr  = quarterly[idx].quarter.slice(0, 4);
+    const prv = quarterly[idx - 1].quarter.slice(0, 4);
+    if (yr === prv) return '';
+    return parseInt(yr) % 2 === 0 ? yr : '';
+  };
 
   new Chart(ctx, {
     type: 'bar',
     data: {
       labels,
-      datasets: [{
-        label: 'IO mentions',
-        data: quarterly.map(d => d.n_io),
-        backgroundColor: quarterly.map(d => sentColor(d.sentiment)),
-        borderWidth: 0,
-      }]
+      datasets: [
+        {
+          // Volume bars
+          label: 'IO mentions',
+          data: quarterly.map(d => d.n_io),
+          backgroundColor: 'rgba(160,160,160,0.35)',
+          borderWidth: 0,
+          yAxisID: 'y',
+          order: 2,
+        },
+        {
+          // Sentiment line — per-segment colour
+          type: 'line',
+          label: 'Sentiment',
+          data: quarterly.map(d => d.sentiment),
+          yAxisID: 'y1',
+          borderWidth: 2.5,
+          pointRadius: 0,
+          pointHoverRadius: 4,
+          tension: 0.35,
+          spanGaps: true,
+          segment: {
+            borderColor: ctx => sentColor(quarterly[ctx.p1DataIndex]?.sentiment),
+          },
+          order: 1,
+        }
+      ]
     },
     options: {
       responsive: true,
       maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
       plugins: {
         legend: { display: false },
         tooltip: {
@@ -850,8 +879,12 @@ function initChart(quarterly) {
             title: ctx => ctx[0].label,
             label: ctx => {
               const d = quarterly[ctx[0].dataIndex];
-              const sent = d.sentiment !== null ? d.sentiment.toFixed(3) : 'n/a';
-              return [`Mentions: ${d.n_io}`, `Rate: ${d.io_rate.toFixed(1)}% of ${d.n_total} exchanges`, `Sentiment: ${sent}`];
+              if (ctx.datasetIndex === 0) {
+                return `Mentions: ${d.n_io}  (${d.io_rate.toFixed(1)}% of ${d.n_total} exchanges)`;
+              } else {
+                const s = d.sentiment;
+                return `Sentiment: ${s !== null ? s.toFixed(3) : 'n/a'}`;
+              }
             }
           }
         }
@@ -859,26 +892,21 @@ function initChart(quarterly) {
       scales: {
         x: {
           grid: { display: false },
-          ticks: {
-            font: { size: 10 },
-            maxRotation: 0,
-            autoSkip: false,
-            callback: (val, idx) => {
-              const q = quarterly[idx].quarter;
-              const yr = q.slice(0, 4);
-              // Label on Q1, or first occurrence of that year
-              if (idx === 0) return yr;
-              const prevYr = quarterly[idx - 1].quarter.slice(0, 4);
-              if (yr === prevYr) return '';
-              // Only show every other year to avoid crowding
-              return parseInt(yr) % 2 === 0 ? yr : '';
-            }
-          }
+          ticks: { font: { size: 10 }, maxRotation: 0, autoSkip: false, callback: xTickCb }
         },
         y: {
+          position: 'left',
           beginAtZero: true,
-          ticks: { font: { size: 11 } },
-          title: { display: true, text: 'IO mentions per quarter', font: { size: 11 } }
+          ticks: { font: { size: 10 } },
+          title: { display: true, text: 'Mentions', font: { size: 10 } }
+        },
+        y1: {
+          position: 'right',
+          min: -0.5,
+          max: 1.0,
+          grid: { drawOnChartArea: false },
+          ticks: { font: { size: 10 }, callback: v => v.toFixed(1) },
+          title: { display: true, text: 'Sentiment', font: { size: 10 } }
         }
       }
     }
