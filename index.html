@@ -433,12 +433,14 @@
     <h2>Confrontation over time: China's threats, demands, and representations
       <span class="zh">对抗态势：中国的威胁、要求与交涉</span>
     </h2>
-    <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">This section measures confrontational language in the spokesperson's <em>own</em> answers — instances where China itself issues a threat, makes a demand, urges or requests action of another party, or lodges a formal diplomatic representation. These are markers of China's diplomatic assertiveness, not of pressure on China. The chart below shows how the volume of this language has changed over time. (A separate category, attacks on Chinese nationals abroad, is shown only on the map further down.)</p>
+    <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">This section measures confrontational language in the spokesperson's <em>own</em> answers — instances where China itself issues a threat, makes a demand, urges or requests action of another party, or lodges a formal diplomatic representation. These are markers of China's diplomatic assertiveness, not of pressure on China. Use the tabs to switch between yearly <strong>counts</strong>, each code's <strong>share</strong>, confrontational exchanges <strong>vs the whole corpus</strong>, and seasonality <strong>by calendar month</strong>. (A separate category, attacks on Chinese nationals abroad, is shown only on the map further down.)</p>
     <p id="threats-mode-note" style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-bottom:1rem;">Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。</p>
 
     <div class="chart-tabs" id="threats-tabs">
       <button class="chart-tab active" data-mode="count">Counts</button>
       <button class="chart-tab" data-mode="share">Share by code</button>
+      <button class="chart-tab" data-mode="corpus">Vs whole corpus</button>
+      <button class="chart-tab" data-mode="month">By month</button>
     </div>
 
     <div class="threats-toggles" id="threats-toggles">
@@ -684,12 +686,13 @@ Promise.all([
   fetch('data/press_breakdown.json').then(r => r.json()),
   fetch('data/topics.json').then(r => r.json()),
   fetch('data/articles.json').then(r => r.json()),
+  fetch('data/threats_by_month.json').then(r => r.json()),
 ]).then(([countryData, monthlyData, quarterlyData, threatsData, threatsByCountry,
-          spByYear, spCards, pressData, topicsData, articlesData]) => {
+          spByYear, spCards, pressData, topicsData, articlesData, threatsByMonth]) => {
   initHeadlines(countryData, monthlyData);
   initMap(countryData);
   initChart(quarterlyData);
-  initThreatsChart(threatsData);
+  initThreatsChart(threatsData, threatsByMonth);
   initThreatsMap(threatsByCountry);
   initSpChart(spByYear);
   initSpCards(spCards);
@@ -1103,9 +1106,11 @@ function initThreatsMap(byCountry) {
 
 // ── Threats Chart ────────────────────────────────────────────────────────
 
-function initThreatsChart(threats) {
+function initThreatsChart(threats, monthly) {
   const ctx = document.getElementById('threats-chart').getContext('2d');
-  const labels = threats.map(d => d.year);
+  // Drop empty leading years (2002 has no confrontational exchanges)
+  threats = threats.filter(d => d.year >= 2003);
+  const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   const series = [
     { key: 'Active threat',   label: 'Active threat',           color: '#6d1a36' },
@@ -1116,144 +1121,178 @@ function initThreatsChart(threats) {
     { key: 'Representations', label: 'Representations (China)', color: '#457b9d' },
   ];
 
-  let viewMode = 'count';  // 'count' | 'share'
+  let viewMode = 'count';
+  let soloIdx = null;
+  let chart = null;
 
-  function countData(s) {
-    return threats.map(d => d[s.key] || 0);
-  }
-  function shareData(s) {
-    return threats.map(d => {
-      const total = d.total || 0;
-      return total > 0 ? +((d[s.key] || 0) / total * 100).toFixed(1) : 0;
-    });
-  }
-
-  const barDatasets = series.map(s => ({
-    type: 'bar',
-    label: s.label,
-    data: countData(s),
-    backgroundColor: s.color,
-    stack: 'threats',
-    borderWidth: 0,
-    _series: s,
-  }));
-
-  const totalLineDataset = {
-    type: 'line',
-    label: 'Total exchanges (distinct)',
-    data: threats.map(d => d.total),
-    borderColor: '#222',
-    borderWidth: 2,
-    borderDash: [6, 4],
-    pointRadius: 3,
-    pointBackgroundColor: '#222',
-    fill: false,
-    tension: 0,
-    order: 0,
+  const NOTES = {
+    count: 'Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。',
+    share: 'Each bar is the share of that year’s confrontational exchanges that carry the code. Because one exchange can carry several codes at once (and “Active threat” is a subset of “Threat”), the codes overlap and do <em>not</em> sum to 100% — so they are shown side by side, not stacked. Click a category above to isolate it.',
+    corpus: 'Grey bars = all MFA press-conference exchanges that year; red bars = the subset coded confrontational; the line is the confrontation rate (red, right axis). Confrontational exchanges are a small fraction of the corpus, but their share climbs from 2018.',
+    month: 'Seasonality across all years pooled (2003–2026). Each bar is the share of <em>that calendar month’s</em> exchanges that carry the code. August’s elevated rate reflects a small denominator — far fewer briefings during the summer recess. Codes overlap, so they needn’t sum to a total. Click a category above to isolate it.',
   };
 
-  const chart = new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets: [...barDatasets, totalLineDataset] },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: false },
-        tooltip: {
-          mode: 'index',
-          filter: item => !item.dataset.hidden,
-          callbacks: {
-            title: ctx => 'Year: ' + ctx[0].label,
-            label: ctx => {
-              if (ctx.raw === null || ctx.raw === 0) return null;
-              const suffix = viewMode === 'share' && ctx.datasetIndex < barDatasets.length ? '%' : '';
-              return `${ctx.dataset.label}: ${ctx.raw}${suffix}`;
+  // Build the six code bar datasets for a row set, given a value function
+  function codeDatasets(rows, valueFn, stacked) {
+    return series.map((s, i) => ({
+      type: 'bar',
+      label: s.label,
+      data: rows.map(d => valueFn(d, s)),
+      backgroundColor: s.color,
+      stack: stacked ? 'threats' : undefined,
+      borderWidth: 0,
+      _codeIdx: i,
+    }));
+  }
+
+  function buildChart(mode) {
+    if (chart) chart.destroy();
+    let config;
+
+    if (mode === 'count' || mode === 'share') {
+      const isShare = mode === 'share';
+      const valueFn = isShare
+        ? (d, s) => { const t = d.total || 0; return t > 0 ? +((d[s.key] || 0) / t * 100).toFixed(1) : 0; }
+        : (d, s) => d[s.key] || 0;
+      const datasets = codeDatasets(threats, valueFn, !isShare);
+      if (!isShare) {
+        datasets.push({
+          type: 'line', label: 'Total exchanges (distinct)',
+          data: threats.map(d => d.total),
+          borderColor: '#222', borderWidth: 2, borderDash: [6, 4],
+          pointRadius: 3, pointBackgroundColor: '#222', fill: false, tension: 0, order: 0,
+        });
+      }
+      config = {
+        type: 'bar',
+        data: { labels: threats.map(d => d.year), datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              mode: 'index', filter: it => !it.dataset.hidden,
+              callbacks: {
+                title: c => 'Year: ' + c[0].label,
+                label: c => {
+                  if (c.raw === null || c.raw === 0) return null;
+                  const suf = (isShare && c.dataset._codeIdx !== undefined) ? '%' : '';
+                  return `${c.dataset.label}: ${c.raw}${suf}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: { stacked: !isShare, grid: { display: false }, ticks: { font: { size: 11 } } },
+            y: {
+              stacked: !isShare, beginAtZero: true,
+              ticks: { font: { size: 11 }, callback: v => isShare ? v + '%' : v },
+              title: { display: true, text: isShare ? '% of confrontational exchanges carrying each code' : 'Annual count (bars multi-count; line = exchanges)', font: { size: 11 } }
             }
           }
         }
-      },
-      scales: {
-        x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
-        y: {
-          stacked: true, beginAtZero: true,
-          ticks: { font: { size: 11 }, callback: v => viewMode === 'share' ? v + '%' : v },
-          title: { display: true, text: 'Annual count (bars multi-count; line = exchanges)', font: { size: 11 } }
+      };
+    } else if (mode === 'corpus') {
+      config = {
+        type: 'bar',
+        data: {
+          labels: threats.map(d => d.year),
+          datasets: [
+            { type: 'bar', label: 'All exchanges', data: threats.map(d => d.corpus_total), backgroundColor: 'rgba(150,150,150,0.45)', borderWidth: 0, yAxisID: 'y', order: 3 },
+            { type: 'bar', label: 'Confrontational', data: threats.map(d => d.total), backgroundColor: '#c0291a', borderWidth: 0, yAxisID: 'y', order: 2 },
+            { type: 'line', label: 'Confrontation rate (%)', data: threats.map(d => d.corpus_total ? +(d.total / d.corpus_total * 100).toFixed(1) : 0), borderColor: '#6d1a36', backgroundColor: '#6d1a36', borderWidth: 2.5, pointRadius: 2, fill: false, tension: 0.3, yAxisID: 'y1', order: 0 },
+          ]
+        },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: true, position: 'bottom', labels: { font: { size: 10 }, boxWidth: 12, padding: 8 } },
+            tooltip: {
+              mode: 'index',
+              callbacks: {
+                title: c => 'Year: ' + c[0].label,
+                label: c => c.dataset.yAxisID === 'y1'
+                  ? `Confrontation rate: ${c.raw}%`
+                  : `${c.dataset.label}: ${c.raw.toLocaleString()}`
+              }
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+            y: { position: 'left', beginAtZero: true, title: { display: true, text: 'Exchanges per year', font: { size: 11 } } },
+            y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Confrontation rate', font: { size: 11 } } }
+          }
         }
-      }
+      };
+    } else { // month
+      const valueFn = (d, s) => { const t = d.corpus_total || 0; return t > 0 ? +((d[s.key] || 0) / t * 100).toFixed(2) : 0; };
+      config = {
+        type: 'bar',
+        data: { labels: MONTHS, datasets: codeDatasets(monthly, valueFn, false) },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              mode: 'index', filter: it => !it.dataset.hidden,
+              callbacks: {
+                title: c => c[0].label,
+                label: c => c.raw > 0 ? `${c.dataset.label}: ${c.raw}% of ${c[0].label} exchanges` : null
+              }
+            }
+          },
+          scales: {
+            x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+            y: { beginAtZero: true, ticks: { callback: v => v + '%', font: { size: 11 } },
+                 title: { display: true, text: '% of that month’s exchanges carrying each code', font: { size: 11 } } }
+          }
+        }
+      };
     }
-  });
 
-  const NOTE_COUNT = 'Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。';
-  const NOTE_SHARE = 'Each bar is the share of that year’s confrontational exchanges that carry the code. Because one exchange can carry several codes at once (and “Active threat” is a subset of “Threat”), the codes overlap and do <em>not</em> sum to 100% — so they are shown side by side, not stacked. Click a category above to isolate it.';
+    chart = new Chart(ctx, config);
+    applySolo();
+  }
+
+  // Solo-select applies only to the six code datasets (count / share / month)
+  function applySolo() {
+    if (!chart) return;
+    chart.data.datasets.forEach(ds => {
+      if (ds._codeIdx === undefined) return;  // non-code datasets always visible
+      ds.hidden = (soloIdx !== null && ds._codeIdx !== soloIdx);
+    });
+    chart.update('none');
+    document.querySelectorAll('#threats-toggles .ttog-btn').forEach(btn => {
+      const s = btn.dataset.series;
+      if (s === 'all') btn.classList.toggle('muted', soloIdx !== null);
+      else btn.classList.toggle('muted', soloIdx !== null && parseInt(s) !== soloIdx);
+    });
+  }
 
   function switchMode(mode) {
     viewMode = mode;
-    const isShare = mode === 'share';
-
-    barDatasets.forEach((ds, i) => {
-      ds.data = isShare ? shareData(ds._series) : countData(ds._series);
-      chart.data.datasets[i].data = ds.data;
-      // Stacked for counts; grouped (side by side) for per-code shares
-      chart.data.datasets[i].stack = isShare ? undefined : 'threats';
-    });
-
-    // Total line belongs to the stacked count view only
-    chart.data.datasets[barDatasets.length].hidden = isShare;
-
-    chart.options.scales.x.stacked = !isShare;
-    chart.options.scales.y.stacked = !isShare;
-    chart.options.scales.y.title.text = isShare
-      ? '% of confrontational exchanges carrying each code'
-      : 'Annual count (bars multi-count; line = exchanges)';
-    chart.options.scales.y.max = undefined;  // auto-scale both modes
-
-    chart.update();
-
+    buildChart(mode);
+    // Category toggles are meaningless in the corpus view
+    document.getElementById('threats-toggles').style.display = (mode === 'corpus') ? 'none' : 'flex';
     const note = document.getElementById('threats-mode-note');
-    if (note) note.innerHTML = isShare ? NOTE_SHARE : NOTE_COUNT;
-
-    document.querySelectorAll('#threats-tabs .chart-tab').forEach(t => {
-      t.classList.toggle('active', t.dataset.mode === mode);
-    });
+    if (note) note.innerHTML = NOTES[mode];
+    document.querySelectorAll('#threats-tabs .chart-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
   }
 
   document.querySelectorAll('#threats-tabs .chart-tab').forEach(tab => {
     tab.addEventListener('click', () => switchMode(tab.dataset.mode));
   });
 
-  // ── Solo-select series toggle logic ──────────────────────────────────
-  let soloIdx = null;
-
-  function applyView() {
-    chart.data.datasets.forEach((ds, i) => {
-      if (i === barDatasets.length) return;  // total line handled by mode
-      ds.hidden = (soloIdx !== null && i !== soloIdx);
-    });
-    chart.update('none');
-
-    document.querySelectorAll('#threats-toggles .ttog-btn').forEach(btn => {
-      const s = btn.dataset.series;
-      if (s === 'all') {
-        btn.classList.toggle('muted', soloIdx !== null);
-      } else {
-        btn.classList.toggle('muted', soloIdx !== null && parseInt(s) !== soloIdx);
-      }
-    });
-  }
-
   document.querySelectorAll('#threats-toggles .ttog-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       const s = btn.dataset.series;
-      if (s === 'all') {
-        soloIdx = null;
-      } else {
-        const idx = parseInt(s);
-        soloIdx = (soloIdx === idx) ? null : idx;
-      }
-      applyView();
+      if (s === 'all') soloIdx = null;
+      else { const idx = parseInt(s); soloIdx = (soloIdx === idx) ? null : idx; }
+      applySolo();
     });
   });
+
+  switchMode('count');  // initial render
 }
 
 // ── Spokesperson Chart ────────────────────────────────────────────────────

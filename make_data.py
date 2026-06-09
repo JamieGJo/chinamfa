@@ -787,7 +787,8 @@ threats_by_year = []
 for yr in tby_years:
     rows = df[df["year_clean"] == yr]
     conf_mask = rows[ALL_CONF_COLS].notna().any(axis=1)
-    entry = {"year": int(yr), "total": int(conf_mask.sum())}
+    # corpus_total = ALL exchanges that year (the whole-corpus denominator)
+    entry = {"year": int(yr), "total": int(conf_mask.sum()), "corpus_total": int(len(rows))}
     for col in ALL_CONF_COLS:
         entry[col] = int(rows[col].notna().sum()) if col in rows.columns else 0
     threats_by_year.append(entry)
@@ -795,6 +796,23 @@ for yr in tby_years:
 with open(os.path.join(OUT_DIR, "threats_by_year.json"), "w") as f:
     json.dump(threats_by_year, f)
 print(f"  wrote threats_by_year.json ({len(threats_by_year)} years)")
+
+# ── F2: Threats by calendar month (seasonality, aggregated across all years) ──
+print("Building threats_by_month …")
+
+df["_month"] = pd.to_datetime(df["date"], errors="coerce").dt.month
+threats_by_month = []
+for mo in range(1, 13):
+    rows = df[df["_month"] == mo]
+    conf_mask = rows[ALL_CONF_COLS].notna().any(axis=1)
+    entry = {"month": mo, "total": int(conf_mask.sum()), "corpus_total": int(len(rows))}
+    for col in ALL_CONF_COLS:
+        entry[col] = int(rows[col].notna().sum()) if col in rows.columns else 0
+    threats_by_month.append(entry)
+
+with open(os.path.join(OUT_DIR, "threats_by_month.json"), "w") as f:
+    json.dump(threats_by_month, f)
+print(f"  wrote threats_by_month.json (12 months)")
 
 # ── G: Threats by country ──────────────────────────────────────────────────────
 print("Building threats_by_country …")
