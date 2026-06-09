@@ -142,6 +142,19 @@
     .sp-card .sp-bio-toggle:hover { color: #444; }
     .sp-card .sp-bio-toggle .arrow { display: inline-block; transition: transform 0.15s; }
     .sp-card .sp-bio-toggle.open .arrow { transform: rotate(90deg); }
+    .sp-card .sp-bio-field { display: flex; gap: 0.3rem; margin-bottom: 0.2rem; font-size: 0.71rem; color: #555; }
+    .sp-card .sp-bio-label { font-weight: 600; color: #888; white-space: nowrap; min-width: 4.5rem; }
+    .sp-card .sp-bio-badges { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0.3rem 0 0.1rem; }
+    .sp-card .sp-badge { font-size: 0.62rem; padding: 0.08rem 0.35rem; border-radius: 3px; font-weight: 600; background: #eee; color: #555; }
+    .sp-card .sp-badge.congress { background: #c8e6c9; color: #2e7d32; }
+    .sp-card .sp-badge.twitter { background: #e3f2fd; color: #1565c0; }
+    .sp-breakdown-wrap { margin-top: 0.6rem; padding-top: 0.4rem; border-top: 1px solid #f0ebe4; }
+    .sp-breakdown-label { font-size: 0.67rem; color: #999; margin-bottom: 0.3rem; letter-spacing: 0.05em; text-transform: uppercase; }
+    .sp-breakdown-bar { display: flex; height: 7px; border-radius: 3px; overflow: hidden; width: 100%; }
+    .sp-breakdown-bar span { display: block; transition: width 0.3s; }
+    .sp-breakdown-legend { display: flex; flex-wrap: wrap; gap: 0.3rem 0.6rem; margin-top: 0.3rem; }
+    .sp-breakdown-legend-item { display: flex; align-items: center; gap: 0.2rem; font-size: 0.62rem; color: #777; }
+    .sp-breakdown-legend-item i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
 
     /* ── Two-column chart layout ── */
     .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-top: 1rem; }
@@ -508,6 +521,12 @@
     </div>
 
     <div class="sp-cards" id="sp-cards"></div>
+
+    <h3 style="margin-top:2rem;font-size:1rem;font-family:sans-serif;color:#1a1a2e;">Confrontation types by spokesperson</h3>
+    <p style="font-size:0.85rem;color:#555;margin-bottom:0.5rem;">Each bar shows the breakdown of confrontation-type exchanges (as a share of all confrontational exchanges) for that spokesperson. Hover for counts.</p>
+    <div class="chart-wrap" style="height:420px;">
+      <canvas id="sp-breakdown-chart"></canvas>
+    </div>
   </div>
 </section>
 
@@ -647,6 +666,7 @@ Promise.all([
   initThreatsMap(threatsByCountry);
   initSpChart(spByYear);
   initSpCards(spCards);
+  initSpBreakdownChart(spCards);
   initTopicsCharts(topicsData, pressData);
   initExplorer(articlesData, spCards);
 }).catch(err => {
@@ -1206,6 +1226,75 @@ function initSpChart(spByYear) {
 
 // ── Spokesperson Cards ────────────────────────────────────────────────────
 
+const CONF_COLORS = {
+  'Threat':         '#8b0000',
+  'Active threat':  '#c0291a',
+  'Demand':         '#e05c45',
+  'Urge':           '#f4a261',
+  'Request':        '#adb5bd',
+  'Representations':'#4895ef',
+  'China attacked': '#8338ec',
+};
+const CONF_KEYS = ['Threat','Active threat','Demand','Urge','Request','Representations','China attacked'];
+
+function buildBioDropdown(c) {
+  const hasCdbd = c.cdbd_name_zh;
+  if (!hasCdbd && !c.note) return '';
+
+  let html = '<div class="sp-note">';
+
+  if (c.note) {
+    html += `<p style="margin:0 0 0.5rem;">${c.note}</p>`;
+  }
+
+  if (hasCdbd) {
+    const rows = [];
+    if (c.cdbd_name_zh)   rows.push(['Chinese name', `${c.cdbd_name_zh}`]);
+    if (c.cdbd_edu)       rows.push(['Education', c.cdbd_edu + (c.cdbd_major ? ` — ${c.cdbd_major}` : '') + (c.cdbd_univ ? `, ${c.cdbd_univ}` : '')]);
+    if (c.cdbd_g_univ)    rows.push(['Postgraduate', (c.cdbd_g_major ? c.cdbd_g_major + ', ' : '') + c.cdbd_g_univ]);
+    if (c.cdbd_edu_abroad)rows.push(['Study abroad', c.cdbd_edu_abroad]);
+    if (c.cdbd_lang)      rows.push(['Languages', c.cdbd_lang]);
+    if (c.cdbd_local_bg)  rows.push(['Local ties', c.cdbd_local_bg]);
+    if (c.cdbd_ccp_bg)    rows.push(['CCP background', c.cdbd_ccp_bg]);
+    if (c.cdbd_ministry_bg) rows.push(['Ministry background', c.cdbd_ministry_bg]);
+    if (c.cdbd_notes && c.cdbd_notes.toLowerCase() !== c.note?.toLowerCase()) {
+      rows.push(['Notes', c.cdbd_notes]);
+    }
+    if (rows.length) {
+      html += '<div style="margin-top:0.3rem;">';
+      rows.forEach(([label, val]) => {
+        html += `<div class="sp-bio-field"><span class="sp-bio-label">${label}</span><span>${val}</span></div>`;
+      });
+      html += '</div>';
+    }
+    const badges = [];
+    if (c.cdbd_congress20) badges.push(`<span class="sp-badge congress">20th CCP Congress</span>`);
+    if (c.cdbd_congress19) badges.push(`<span class="sp-badge congress">19th CCP Congress</span>`);
+    if (c.cdbd_twitter)    badges.push(`<span class="sp-badge twitter">@${c.cdbd_twitter}</span>`);
+    if (badges.length) {
+      html += `<div class="sp-bio-badges">${badges.join('')}</div>`;
+    }
+  }
+  html += '</div>';
+  return html;
+}
+
+function buildBreakdownBar(c) {
+  const bd = c.conf_breakdown || {};
+  const total = CONF_KEYS.reduce((s, k) => s + (bd[k] || 0), 0);
+  if (total === 0) return '';
+  const segments = CONF_KEYS.map(k => {
+    const n = bd[k] || 0;
+    const pct = (n / total * 100).toFixed(1);
+    return `<span style="width:${pct}%;background:${CONF_COLORS[k]};" title="${k}: ${n}"></span>`;
+  }).join('');
+  return `
+    <div class="sp-breakdown-wrap">
+      <div class="sp-breakdown-label">Confrontation breakdown</div>
+      <div class="sp-breakdown-bar">${segments}</div>
+    </div>`;
+}
+
 function initSpCards(cards) {
   const container = document.getElementById('sp-cards');
   cards.forEach(c => {
@@ -1214,8 +1303,10 @@ function initSpCards(cards) {
     div.style.setProperty('--sp-color', c.color);
     const eraBadge = c.era ? `<span class="sp-era">${c.era}</span>` : '';
     const postLine = c.post ? `<div class="sp-post">${c.post}</div>` : '';
-    const noteLine = c.note ? `<div class="sp-note">${c.note}</div>` : '';
-    const toggle = c.note ? `<button class="sp-bio-toggle"><span class="arrow">▶</span> Biography</button>` : '';
+    const hasBio = c.note || c.cdbd_name_zh;
+    const noteLine = buildBioDropdown(c);
+    const toggle = hasBio ? `<button class="sp-bio-toggle"><span class="arrow">▶</span> Biography</button>` : '';
+    const breakdown = buildBreakdownBar(c);
     div.innerHTML = `
       <div class="sp-name">${c.name} ${eraBadge}</div>
       <div class="sp-years">${c.year_min || '?'} – ${c.year_max || '?'}</div>
@@ -1223,10 +1314,11 @@ function initSpCards(cards) {
       <div class="sp-stat"><span>Exchanges</span><span class="sp-val">${c.n_total.toLocaleString()}</span></div>
       <div class="sp-stat"><span>IO mentions</span><span class="sp-val">${c.n_io}</span></div>
       <div class="sp-stat"><span>Confrontation rate</span><span class="sp-val">${c.conf_rate}%</span></div>
+      ${breakdown}
       ${toggle}
       ${noteLine}
     `;
-    if (c.note) {
+    if (hasBio) {
       const btn = div.querySelector('.sp-bio-toggle');
       const note = div.querySelector('.sp-note');
       btn.addEventListener('click', () => {
@@ -1235,6 +1327,52 @@ function initSpCards(cards) {
       });
     }
     container.appendChild(div);
+  });
+}
+
+// ── Spokesperson Confrontation Breakdown Chart ────────────────────────────
+
+function initSpBreakdownChart(cards) {
+  const ctx = document.getElementById('sp-breakdown-chart').getContext('2d');
+  // Only spokespeople with any confrontational exchanges
+  const active = cards.filter(c => c.n_conf > 0);
+  const labels = active.map(c => c.name);
+
+  const datasets = CONF_KEYS.map(k => ({
+    label: k,
+    data: active.map(c => {
+      const total = CONF_KEYS.reduce((s, j) => s + ((c.conf_breakdown||{})[j]||0), 0);
+      return total > 0 ? +((c.conf_breakdown[k]||0)/total*100).toFixed(1) : 0;
+    }),
+    backgroundColor: CONF_COLORS[k],
+    stack: 'conf',
+    borderWidth: 0,
+  }));
+
+  new Chart(ctx, {
+    type: 'bar',
+    data: { labels, datasets },
+    options: {
+      indexAxis: 'y',
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 11, padding: 8 } },
+        tooltip: {
+          mode: 'index',
+          callbacks: {
+            title: ctx => ctx[0].label,
+            label: ctx => ctx.raw > 0 ? `${ctx.dataset.label}: ${ctx.raw}%` : null,
+            filter: item => item.raw > 0,
+          }
+        }
+      },
+      scales: {
+        x: { stacked: true, max: 100, ticks: { callback: v => v+'%', font: { size: 10 } },
+             title: { display: true, text: 'Share of confrontational exchanges (%)', font: { size: 10 } } },
+        y: { stacked: true, ticks: { font: { size: 11 } }, grid: { display: false } }
+      }
+    }
   });
 }
 

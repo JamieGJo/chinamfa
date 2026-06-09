@@ -401,6 +401,53 @@ SP_BIO = {
     },
 }
 
+# Load CDBD biographical database
+CDBD_PATH = "/Users/jamiegruffydd-jones/Downloads/dataverse_files (2)/CDBD 02.08.2026.xlsx"
+try:
+    cdbd_df = pd.read_excel(CDBD_PATH)
+    cdbd_lookup = {row["name_en"]: row for _, row in cdbd_df.iterrows()}
+    print(f"  Loaded CDBD ({len(cdbd_df)} rows)")
+except Exception as e:
+    cdbd_lookup = {}
+    print(f"  WARNING: CDBD not loaded — {e}")
+
+EDU_MAP = {1: "Bachelor's", 2: "Master's", 3: "Doctoral"}
+
+CONF_TYPES = ["Threat", "Active threat", "Demand", "Urge", "Request", "Representations", "China attacked"]
+
+def _cdbd_str(val):
+    s = str(val).strip()
+    return "" if s in ("nan", "", "None") else s
+
+def build_cdbd_fields(sp):
+    row = cdbd_lookup.get(sp)
+    if row is None:
+        return {}
+    def v(col):
+        return _cdbd_str(row.get(col, ""))
+    edu_code = row.get("edu")
+    edu_str = EDU_MAP.get(int(edu_code), "") if pd.notna(edu_code) else ""
+    return {
+        "cdbd_name_zh":   v("name_zh"),
+        "cdbd_born":      int(row["born"]) if pd.notna(row.get("born")) else None,
+        "cdbd_birth_city":   v("birth_city"),
+        "cdbd_birth_region": v("birth_region"),
+        "cdbd_edu":        edu_str,
+        "cdbd_major":      v("major"),
+        "cdbd_univ":       v("university"),
+        "cdbd_g_major":    v("g_major"),
+        "cdbd_g_univ":     v("g_university"),
+        "cdbd_edu_abroad": v("edu_abroad"),
+        "cdbd_lang":       v("foreign_lang"),
+        "cdbd_twitter":    v("twitter_handdle"),
+        "cdbd_local_bg":   v("local_background"),
+        "cdbd_ccp_bg":     v("ccp_background"),
+        "cdbd_ministry_bg": v("ministry_background"),
+        "cdbd_congress19": bool(row.get("ccpcongress_19") == 1),
+        "cdbd_congress20": bool(row.get("ccpcongress_20") == 1),
+        "cdbd_notes":      v("notes"),
+    }
+
 cards = []
 for sp in TOP_SP:
     rows = df[df["spokesperson"] == sp]
@@ -412,7 +459,16 @@ for sp in TOP_SP:
     year_min = int(yrs.min()) if len(yrs) else None
     year_max = int(yrs.max()) if len(yrs) else None
     bio = SP_BIO.get(sp, {})
-    cards.append({
+
+    # Confrontation type breakdown (exclusive priority, same as quarterly_io)
+    breakdown = {}
+    for ct in CONF_TYPES:
+        if ct in rows.columns:
+            breakdown[ct] = int(rows[ct].notna().sum())
+        else:
+            breakdown[ct] = 0
+
+    card = {
         "name": sp,
         "color": SP_COLOR.get(sp, "#999"),
         "n_total": int(n_total),
@@ -424,7 +480,10 @@ for sp in TOP_SP:
         "era": bio.get("era", ""),
         "post": bio.get("post", ""),
         "note": bio.get("note", ""),
-    })
+        "conf_breakdown": breakdown,
+    }
+    card.update(build_cdbd_fields(sp))
+    cards.append(card)
 
 with open(os.path.join(OUT_DIR, "spokesperson_cards.json"), "w") as f:
     json.dump(cards, f)
