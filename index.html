@@ -434,11 +434,11 @@
       <span class="zh">对抗态势：中国的威胁、要求与交涉</span>
     </h2>
     <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">This section measures confrontational language in the spokesperson's <em>own</em> answers — instances where China itself issues a threat, makes a demand, urges or requests action of another party, or lodges a formal diplomatic representation. These are markers of China's diplomatic assertiveness, not of pressure on China. The chart below shows how the volume of this language has changed over time. (A separate category, attacks on Chinese nationals abroad, is shown only on the map further down.)</p>
-    <p style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-bottom:1rem;">Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。</p>
+    <p id="threats-mode-note" style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-bottom:1rem;">Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。</p>
 
     <div class="chart-tabs" id="threats-tabs">
       <button class="chart-tab active" data-mode="count">Counts</button>
-      <button class="chart-tab" data-mode="share">Share of total</button>
+      <button class="chart-tab" data-mode="share">Share by code</button>
     </div>
 
     <div class="threats-toggles" id="threats-toggles">
@@ -1184,6 +1184,9 @@ function initThreatsChart(threats) {
     }
   });
 
+  const NOTE_COUNT = 'Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。';
+  const NOTE_SHARE = 'Each bar is the share of that year’s confrontational exchanges that carry the code. Because one exchange can carry several codes at once (and “Active threat” is a subset of “Threat”), the codes overlap and do <em>not</em> sum to 100% — so they are shown side by side, not stacked. Click a category above to isolate it.';
+
   function switchMode(mode) {
     viewMode = mode;
     const isShare = mode === 'share';
@@ -1191,17 +1194,24 @@ function initThreatsChart(threats) {
     barDatasets.forEach((ds, i) => {
       ds.data = isShare ? shareData(ds._series) : countData(ds._series);
       chart.data.datasets[i].data = ds.data;
+      // Stacked for counts; grouped (side by side) for per-code shares
+      chart.data.datasets[i].stack = isShare ? undefined : 'threats';
     });
 
-    // Hide total line in share mode (it would need a separate axis)
+    // Total line belongs to the stacked count view only
     chart.data.datasets[barDatasets.length].hidden = isShare;
 
+    chart.options.scales.x.stacked = !isShare;
+    chart.options.scales.y.stacked = !isShare;
     chart.options.scales.y.title.text = isShare
-      ? 'Share of total confrontational exchanges (%)'
+      ? '% of confrontational exchanges carrying each code'
       : 'Annual count (bars multi-count; line = exchanges)';
-    chart.options.scales.y.max = isShare ? 100 : undefined;
+    chart.options.scales.y.max = undefined;  // auto-scale both modes
 
     chart.update();
+
+    const note = document.getElementById('threats-mode-note');
+    if (note) note.innerHTML = isShare ? NOTE_SHARE : NOTE_COUNT;
 
     document.querySelectorAll('#threats-tabs .chart-tab').forEach(t => {
       t.classList.toggle('active', t.dataset.mode === mode);
