@@ -90,14 +90,23 @@
       font-size: 0.88rem;
     }
     .map-controls label { font-weight: 600; color: #333; }
-    #year-slider { flex: 1; min-width: 200px; accent-color: #b5000f; }
-    #year-display {
-      font-size: 1.4rem;
+    .map-controls input[type="range"] { flex: 1; min-width: 130px; accent-color: #b5000f; }
+    .map-controls .yr-sep { color: #999; }
+    #year-from-display, #year-to-display {
+      font-size: 1.15rem;
       font-weight: 700;
       color: #b5000f;
-      min-width: 3rem;
+      min-width: 2.6rem;
       text-align: center;
     }
+    .year-all-btn {
+      font-family: sans-serif; font-size: 0.78rem; cursor: pointer;
+      padding: 0.3rem 0.7rem; border-radius: 16px;
+      border: 1.5px solid #b5000f; background: #fff; color: #b5000f;
+      transition: all 0.15s; white-space: nowrap;
+    }
+    .year-all-btn:hover { background: #b5000f; color: #fff; }
+    .year-all-btn.active { background: #b5000f; color: #fff; }
     .map-note { font-size: 0.8rem; color: #777; margin-top: 0.5rem; font-family: sans-serif; }
     .legend {
       display: flex;
@@ -393,14 +402,18 @@
     <h2>Where does China's diplomatic attention fall?
       <span class="zh">中国外交关注的地理分布</span>
     </h2>
-    <p style="font-size:0.9rem;color:#555;">Each country is coloured by how often it appeared in MFA spokesperson answers in the selected year. Click a country for details.</p>
+    <p style="font-size:0.9rem;color:#555;">Each country is coloured by how often it appeared in MFA spokesperson answers across the selected years. Drag the two handles to pick a single year or a span — counts are summed across the range — or click <em>Whole register</em> for the full 2002–2026 record. Colour reflects average mentions per year, so the scale stays comparable whatever span you choose.</p>
 
     <div id="map"></div>
 
     <div class="map-controls">
-      <label for="year-slider">Year 年份:</label>
-      <input type="range" id="year-slider" min="2002" max="2026" value="2026" step="1">
-      <span id="year-display">2026</span>
+      <label>Years 年份:</label>
+      <input type="range" id="year-from" min="2002" max="2026" value="2002" step="1" aria-label="From year">
+      <span id="year-from-display">2002</span>
+      <span class="yr-sep">→</span>
+      <input type="range" id="year-to" min="2002" max="2026" value="2026" step="1" aria-label="To year">
+      <span id="year-to-display">2026</span>
+      <button type="button" id="year-all" class="year-all-btn active">Whole register</button>
     </div>
     <div class="legend">
       <span>Fewer mentions</span>
@@ -770,27 +783,45 @@ function initMap(data) {
     .then(r => r.json())
     .then(geo => {
       geoLayer = L.geoJSON(geo, {
-        style: feature => getStyle(feature, currentYear()),
+        style: feature => getStyle(feature, currentRange()),
         onEachFeature: onEachFeature
       }).addTo(map);
-      updateMap(currentYear());
+      updateMap(currentRange());
     })
     .catch(() => {
       document.querySelector('.map-note').textContent +=
         ' (World borders could not be loaded — check your internet connection.)';
     });
 
-  // Slider
-  const slider = document.getElementById('year-slider');
-  const display = document.getElementById('year-display');
-  slider.addEventListener('input', () => {
-    display.textContent = slider.value;
-    updateMap(parseInt(slider.value));
+  // Year-range sliders + "Whole register" shortcut
+  const YR_MIN = 2002, YR_MAX = 2026;
+  const fromS = document.getElementById('year-from');
+  const toS   = document.getElementById('year-to');
+  const fromD = document.getElementById('year-from-display');
+  const toD   = document.getElementById('year-to-display');
+  const allBtn = document.getElementById('year-all');
+
+  function syncAndRender() {
+    let from = parseInt(fromS.value), to = parseInt(toS.value);
+    if (from > to) { [from, to] = [to, from]; }   // keep ordered
+    fromD.textContent = from;
+    toD.textContent = to;
+    allBtn.classList.toggle('active', from === YR_MIN && to === YR_MAX);
+    updateMap({ from, to });
+  }
+  // Handles push each other rather than crossing
+  fromS.addEventListener('input', () => { if (+fromS.value > +toS.value) toS.value = fromS.value; syncAndRender(); });
+  toS.addEventListener('input',   () => { if (+toS.value < +fromS.value) fromS.value = toS.value; syncAndRender(); });
+  allBtn.addEventListener('click', () => {
+    fromS.value = YR_MIN; toS.value = YR_MAX; syncAndRender();
   });
 }
 
-function currentYear() {
-  return parseInt(document.getElementById('year-slider').value);
+function currentRange() {
+  let from = parseInt(document.getElementById('year-from').value);
+  let to   = parseInt(document.getElementById('year-to').value);
+  if (from > to) [from, to] = [to, from];
+  return { from, to };
 }
 
 function getCountForYear(iso3, year) {
@@ -801,20 +832,30 @@ function getCountForYear(iso3, year) {
   return d[String(year)] || d[year + '.0'] || 0;
 }
 
-function getColor(count) {
+function getCountForRange(iso3, range) {
+  let total = 0;
+  for (let y = range.from; y <= range.to; y++) total += getCountForYear(iso3, y);
+  return total;
+}
+
+// Thresholds scale with the number of years selected, so colour encodes
+// average mentions per year and the scale stays comparable across spans.
+function getColor(count, nYears) {
   if (count === 0) return '#f0eeea';
-  if (count < 5)   return '#fdd5cc';
-  if (count < 15)  return '#f99981';
-  if (count < 40)  return '#e05c45';
-  if (count < 100) return '#c0291a';
+  const n = Math.max(1, nYears);
+  if (count < 5 * n)   return '#fdd5cc';
+  if (count < 15 * n)  return '#f99981';
+  if (count < 40 * n)  return '#e05c45';
+  if (count < 100 * n) return '#c0291a';
   return '#8b0000';
 }
 
-function getStyle(feature, year) {
+function getStyle(feature, range) {
   const iso = feature.properties['ISO3166-1-Alpha-3'];
-  const count = iso === 'CHN' ? 0 : getCountForYear(iso, year); // exclude China
+  const nYears = range.to - range.from + 1;
+  const count = iso === 'CHN' ? 0 : getCountForRange(iso, range); // exclude China
   return {
-    fillColor: getColor(count),
+    fillColor: getColor(count, nYears),
     weight: 0.5,
     opacity: 1,
     color: '#aaa',
@@ -822,11 +863,15 @@ function getStyle(feature, year) {
   };
 }
 
-function updateMap(year) {
+function updateMap(range) {
   if (!geoLayer) return;
   geoLayer.eachLayer(layer => {
-    layer.setStyle(getStyle(layer.feature, year));
+    layer.setStyle(getStyle(layer.feature, range));
   });
+}
+
+function rangeLabel(range) {
+  return range.from === range.to ? `${range.from}` : `${range.from}–${range.to}`;
 }
 
 function onEachFeature(feature, layer) {
@@ -834,14 +879,15 @@ function onEachFeature(feature, layer) {
     mouseover: e => {
       const iso = feature.properties['ISO3166-1-Alpha-3'];
       const name = feature.properties.name || 'Unknown';
-      const count = iso === 'CHN' ? '(excluded — speaker country)' : getCountForYear(iso, currentYear());
+      const range = currentRange();
+      const count = iso === 'CHN' ? '(excluded — speaker country)' : getCountForRange(iso, range);
       layer.bindTooltip(
-        `<strong>${name}</strong><br>Mentions in ${currentYear()}: ${count}`
+        `<strong>${name}</strong><br>Mentions, ${rangeLabel(range)}: ${count}`
       ).openTooltip(e.latlng);
       layer.setStyle({ weight: 2, color: '#333' });
     },
     mouseout: e => {
-      layer.setStyle(getStyle(feature, currentYear()));
+      layer.setStyle(getStyle(feature, currentRange()));
       layer.closeTooltip();
     }
   });
