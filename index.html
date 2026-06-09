@@ -936,9 +936,11 @@ function initChart(quarterly) {
           label: 'Sentiment',
           data: quarterly.map(d => d.sentiment),
           yAxisID: 'y1',
-          borderWidth: 2.5,
+          borderWidth: 5,
+          borderCapStyle: 'round',
+          borderJoinStyle: 'round',
           pointRadius: 0,
-          pointHoverRadius: 4,
+          pointHoverRadius: 5,
           tension: 0.35,
           spanGaps: true,
           segment: {
@@ -1022,6 +1024,7 @@ function initThreatsMap(byCountry) {
   };
 
   function getColor(iso, type) {
+    if (iso === 'CHN') return '#f0eeea';  // exclude China — it is the speaker
     const d = byCountry[iso];
     const val = d ? (d[type] || 0) : 0;
     if (!val) return '#f0eeea';
@@ -1034,6 +1037,7 @@ function initThreatsMap(byCountry) {
   }
 
   function buildTooltip(iso, name, type) {
+    if (iso === 'CHN') return `<strong>${name}</strong><br><em>(excluded — speaker country)</em>`;
     const d = byCountry[iso];
     if (!d) return `<strong>${name}</strong><br><em>No coded exchanges</em>`;
     const LABELS = {
