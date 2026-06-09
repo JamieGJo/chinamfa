@@ -1335,9 +1335,10 @@ const CONF_COLORS = {
   'Urge':           '#f4a261',
   'Request':        '#adb5bd',
   'Representations':'#4895ef',
-  'China attacked': '#8338ec',
 };
-const CONF_KEYS = ['Threat','Active threat','Demand','Urge','Request','Representations','China attacked'];
+// 'China attacked' (attacked abroad) excluded — different register (China as
+// target, not actor); kept only on the geographic map.
+const CONF_KEYS = ['Threat','Active threat','Demand','Urge','Request','Representations'];
 
 function buildBioDropdown(c) {
   const hasCdbd = c.cdbd_name_zh;
