@@ -657,7 +657,7 @@ def build_tags(row):
     if pd.notna(row.get("Active threat")):
         tags.append("Active threat")
     if pd.notna(row.get("China attacked")):
-        tags.append("Attacked/criticised")
+        tags.append("Attacked abroad")
     if pd.notna(row.get("Threat")):
         tags.append("Threat")
     if pd.notna(row.get("Demand")):
