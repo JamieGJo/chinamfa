@@ -402,6 +402,10 @@ SP_BIO = {
 }
 
 # Load CDBD biographical database
+# Source: Villegas-Cruz, A. M. (2026). Who speaks for Beijing? Insights from a new
+#   dataset on China's diplomatic elite. Journal of Current Chinese Affairs.
+#   https://doi.org/10.1177/18681026261439122
+#   Chinese Diplomatic Elite Biographical Dataset (CDBD), Harvard Dataverse.
 CDBD_PATH = "/Users/jamiegruffydd-jones/Downloads/dataverse_files (2)/CDBD 02.08.2026.xlsx"
 try:
     cdbd_df = pd.read_excel(CDBD_PATH)
