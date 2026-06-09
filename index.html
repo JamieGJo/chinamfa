@@ -420,7 +420,7 @@
     <h2>Confrontation over time: China's threats, demands, and representations
       <span class="zh">对抗态势：中国的威胁、要求与交涉</span>
     </h2>
-    <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">This section measures confrontational language in the spokesperson's <em>own</em> answers — instances where China itself issues a threat, makes a demand, urges or requests action of another party, or lodges a formal diplomatic representation. These are markers of China's diplomatic assertiveness, not of pressure on China. One category is the exception: "Attacked abroad" marks physical or cyber attacks on Chinese nationals and interests overseas. The chart below shows how the volume of this language has changed over time.</p>
+    <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">This section measures confrontational language in the spokesperson's <em>own</em> answers — instances where China itself issues a threat, makes a demand, urges or requests action of another party, or lodges a formal diplomatic representation. These are markers of China's diplomatic assertiveness, not of pressure on China. The chart below shows how the volume of this language has changed over time. (A separate category, attacks on Chinese nationals abroad, is shown only on the map further down.)</p>
     <p style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-bottom:1rem;">Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。</p>
 
     <div class="chart-tabs" id="threats-tabs">
@@ -431,12 +431,11 @@
     <div class="threats-toggles" id="threats-toggles">
       <button class="ttog-btn" data-series="all" style="--tc:#333">All</button>
       <button class="ttog-btn muted" data-series="0" style="--tc:#6d1a36">Active threat</button>
-      <button class="ttog-btn muted" data-series="1" style="--tc:#e8735a">Attacked abroad</button>
-      <button class="ttog-btn muted" data-series="2" style="--tc:#c0291a">Threat</button>
-      <button class="ttog-btn muted" data-series="3" style="--tc:#f4a261">Demand</button>
-      <button class="ttog-btn muted" data-series="4" style="--tc:#e9c46a">Urge</button>
-      <button class="ttog-btn muted" data-series="5" style="--tc:#a8c5da">Request</button>
-      <button class="ttog-btn muted" data-series="6" style="--tc:#457b9d">Representations</button>
+      <button class="ttog-btn muted" data-series="1" style="--tc:#c0291a">Threat</button>
+      <button class="ttog-btn muted" data-series="2" style="--tc:#f4a261">Demand</button>
+      <button class="ttog-btn muted" data-series="3" style="--tc:#e9c46a">Urge</button>
+      <button class="ttog-btn muted" data-series="4" style="--tc:#a8c5da">Request</button>
+      <button class="ttog-btn muted" data-series="5" style="--tc:#457b9d">Representations</button>
     </div>
     <div class="chart-wrap" style="height:340px;">
       <canvas id="threats-chart"></canvas>
@@ -449,8 +448,8 @@
         <div class="expand-body">The spokesperson makes an explicit threat that names a concrete coercive action China will or may take — countermeasures, sanctions, expulsions, and the like. A stronger, more specific coding than generic "Threat" (a strict subset of it). Rises sharply after 2017 and peaks in 2020 (COVID-era US–China confrontation, Hong Kong, Xinjiang) before surging again in 2024–25. <span class="zh">迫切威胁：发言人明确威胁中国将采取或可能采取具体的强制行动——反制措施、制裁、驱逐等，是比一般"威胁"更强、更具体的编码（属其严格子集）。2017年后显著上升，2020年（新冠疫情、香港、新疆）及2024–25年达到高峰。</span></div>
       </details>
       <details class="expand-item">
-        <summary><span style="color:#e8735a;">Attacked abroad 海外遇袭</span></summary>
-        <div class="expand-body">A physical or cyber attack on Chinese citizens, workers, buildings, companies, or interests <em>abroad</em> (outside mainland China and Hong Kong) — kidnappings, shootings, bombings, hacking. This is the one category where China is the target rather than the actor. Excludes verbal criticism, economic measures (sanctions/tariffs), and incidents inside China. Concentrated around major overseas-security episodes (2008, 2014–17). <span class="zh">海外遇袭：中国公民、工人、建筑、企业或利益在海外（中国大陆和香港以外）遭受人身暴力或网络攻击——绑架、枪击、爆炸、黑客攻击。这是唯一以中国为受害方而非行为方的类别。不包括口头批评、经济措施（制裁/关税）及中国境内事件。多集中于重大海外安全事件（2008、2014–17年）。</span></div>
+        <summary><span style="color:#e8735a;">Attacked abroad 海外遇袭 <span style="font-weight:400;color:#999;font-size:0.85em;">(map only)</span></span></summary>
+        <div class="expand-body">A physical or cyber attack on Chinese citizens, workers, buildings, companies, or interests <em>abroad</em> (outside mainland China and Hong Kong) — kidnappings, shootings, bombings, hacking. This is the one category where China is the target rather than the actor, so it is kept off the assertiveness chart above and shown only on the map below. Excludes verbal criticism, economic measures (sanctions/tariffs), and incidents inside China. Concentrated around major overseas-security episodes (2008, 2014–17). <span class="zh">海外遇袭：中国公民、工人、建筑、企业或利益在海外（中国大陆和香港以外）遭受人身暴力或网络攻击——绑架、枪击、爆炸、黑客攻击。这是唯一以中国为受害方而非行为方的类别。不包括口头批评、经济措施（制裁/关税）及中国境内事件。多集中于重大海外安全事件（2008、2014–17年）。</span></div>
       </details>
       <details class="expand-item">
         <summary><span style="color:#c0291a;">Threat 威胁</span></summary>
@@ -1060,7 +1059,6 @@ function initThreatsChart(threats) {
 
   const series = [
     { key: 'Active threat',   label: 'Active threat',           color: '#6d1a36' },
-    { key: 'China attacked',  label: 'Attacked abroad',         color: '#e8735a' },
     { key: 'Threat',          label: 'Threat',                  color: '#c0291a' },
     { key: 'Demand',          label: 'Demand',                  color: '#f4a261' },
     { key: 'Urge',            label: 'Urge',                    color: '#e9c46a' },
