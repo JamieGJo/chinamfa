@@ -223,6 +223,12 @@
     }
     .load-more:hover { background: #b5000f; color: white; }
 
+    /* ── Threat chart view tabs ── */
+    .chart-tabs { display: flex; gap: 0; margin-bottom: 0.8rem; border-bottom: 2px solid #e0dbd4; }
+    .chart-tab { padding: 0.35rem 1rem; font-size: 0.82rem; font-family: sans-serif; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; color: #888; transition: all 0.15s; }
+    .chart-tab.active { color: #1a1a2e; border-bottom-color: #1a1a2e; font-weight: 600; }
+    .chart-tab:hover:not(.active) { color: #444; }
+
     /* ── Threat chart toggle buttons ── */
     .threats-toggles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.7rem; align-items: center; }
     .ttog-btn {
@@ -416,6 +422,11 @@
     </h2>
     <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">This section draws on a subset of the MFA corpus where coders identified confrontational exchanges — questions in which a foreign government or actor is framing something as a threat to China, making a demand, or where China has made formal diplomatic representations. The chart below shows how the volume of these exchanges has changed over time.</p>
     <p style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-bottom:1rem;">Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。</p>
+
+    <div class="chart-tabs" id="threats-tabs">
+      <button class="chart-tab active" data-mode="count">Counts</button>
+      <button class="chart-tab" data-mode="share">Share of total</button>
+    </div>
 
     <div class="threats-toggles" id="threats-toggles">
       <button class="ttog-btn" data-series="all" style="--tc:#333">All</button>
@@ -1054,13 +1065,26 @@ function initThreatsChart(threats) {
     { key: 'Representations', label: 'Representations (China)', color: '#457b9d' },
   ];
 
+  let viewMode = 'count';  // 'count' | 'share'
+
+  function countData(s) {
+    return threats.map(d => d[s.key] || 0);
+  }
+  function shareData(s) {
+    return threats.map(d => {
+      const total = d.total || 0;
+      return total > 0 ? +((d[s.key] || 0) / total * 100).toFixed(1) : 0;
+    });
+  }
+
   const barDatasets = series.map(s => ({
     type: 'bar',
     label: s.label,
-    data: threats.map(d => d[s.key] || 0),
+    data: countData(s),
     backgroundColor: s.color,
     stack: 'threats',
     borderWidth: 0,
+    _series: s,
   }));
 
   const totalLineDataset = {
@@ -1084,13 +1108,17 @@ function initThreatsChart(threats) {
       responsive: true,
       maintainAspectRatio: false,
       plugins: {
-        legend: { display: false },   // replaced by custom toggle buttons
+        legend: { display: false },
         tooltip: {
           mode: 'index',
           filter: item => !item.dataset.hidden,
           callbacks: {
             title: ctx => 'Year: ' + ctx[0].label,
-            label: ctx => `${ctx.dataset.label}: ${ctx.raw}`
+            label: ctx => {
+              if (ctx.raw === null || ctx.raw === 0) return null;
+              const suffix = viewMode === 'share' && ctx.datasetIndex < barDatasets.length ? '%' : '';
+              return `${ctx.dataset.label}: ${ctx.raw}${suffix}`;
+            }
           }
         }
       },
@@ -1098,35 +1126,57 @@ function initThreatsChart(threats) {
         x: { stacked: true, grid: { display: false }, ticks: { font: { size: 11 } } },
         y: {
           stacked: true, beginAtZero: true,
-          ticks: { font: { size: 11 } },
+          ticks: { font: { size: 11 }, callback: v => viewMode === 'share' ? v + '%' : v },
           title: { display: true, text: 'Annual count (bars multi-count; line = exchanges)', font: { size: 11 } }
         }
       }
     }
   });
 
-  // ── Solo-select toggle logic ──────────────────────────────────────────
-  // "All" = all bar series visible (total line always visible)
-  // Click a series button = show only that series
-  // Click same series or "All" = restore all
+  function switchMode(mode) {
+    viewMode = mode;
+    const isShare = mode === 'share';
 
-  let soloIdx = null;   // null = all; 0-6 = index into barDatasets
+    barDatasets.forEach((ds, i) => {
+      ds.data = isShare ? shareData(ds._series) : countData(ds._series);
+      chart.data.datasets[i].data = ds.data;
+    });
+
+    // Hide total line in share mode (it would need a separate axis)
+    chart.data.datasets[barDatasets.length].hidden = isShare;
+
+    chart.options.scales.y.title.text = isShare
+      ? 'Share of total confrontational exchanges (%)'
+      : 'Annual count (bars multi-count; line = exchanges)';
+    chart.options.scales.y.max = isShare ? 100 : undefined;
+
+    chart.update();
+
+    document.querySelectorAll('#threats-tabs .chart-tab').forEach(t => {
+      t.classList.toggle('active', t.dataset.mode === mode);
+    });
+  }
+
+  document.querySelectorAll('#threats-tabs .chart-tab').forEach(tab => {
+    tab.addEventListener('click', () => switchMode(tab.dataset.mode));
+  });
+
+  // ── Solo-select series toggle logic ──────────────────────────────────
+  let soloIdx = null;
 
   function applyView() {
     chart.data.datasets.forEach((ds, i) => {
-      if (i === barDatasets.length) return;  // total line always on
+      if (i === barDatasets.length) return;  // total line handled by mode
       ds.hidden = (soloIdx !== null && i !== soloIdx);
     });
     chart.update('none');
 
-    // Update button styles
     document.querySelectorAll('#threats-toggles .ttog-btn').forEach(btn => {
       const s = btn.dataset.series;
       if (s === 'all') {
         btn.classList.toggle('muted', soloIdx !== null);
       } else {
-        const idx = parseInt(s);
-        btn.classList.toggle('muted', soloIdx !== null && idx !== soloIdx);
+        btn.classList.toggle('muted', soloIdx !== null && parseInt(s) !== soloIdx);
       }
     });
   }
@@ -1138,7 +1188,7 @@ function initThreatsChart(threats) {
         soloIdx = null;
       } else {
         const idx = parseInt(s);
-        soloIdx = (soloIdx === idx) ? null : idx;  // toggle: click same = back to all
+        soloIdx = (soloIdx === idx) ? null : idx;
       }
       applyView();
     });
