@@ -873,4 +873,86 @@ with open(os.path.join(OUT_DIR, "threats_by_country.json"), "w") as f:
     json.dump(threats_by_country, f)
 print(f"  wrote threats_by_country.json ({len(threats_by_country)} countries)")
 
+# ── H: Commentary comparison (MFA podium vs People's Daily commentariat) ─────────
+# The MFA scheme codes spoken Q&A; the same confrontation categories are applied to
+# official COMMENTARY (People's Daily 钟声/国纪平 in Chinese, "Zhong Sheng" in English) by
+# Scraping/commentary_autocode.py. The two corpora differ enormously in size (≈36k Q&A vs a
+# few hundred op-eds), so the comparison is on confrontational SHARE, never raw counts.
+print("Building commentary_compare …")
+
+COMMENTARY_CATS = ["Threat", "Active threat", "Demand", "Urge", "Request", "Representations"]
+COMMENTARY_DIR = os.path.join(SCRIPT_DIR, "../../data/raw-extracts/commentary")
+COMMENTARY_SRC = [
+    # key, label, sublabel, master path (relative to COMMENTARY_DIR)
+    ("pd_zh", "People's Daily 钟声 / 国纪平", "Chinese commentary",
+     "pd_zh/pd_commentary_master.csv"),
+    ("pd_en", "People's Daily “Zhong Sheng”", "English commentary",
+     "pd_en/pd_en_commentary_master.csv"),
+    ("cd", "China Daily editorials", "English commentary",
+     "cd/cd_commentary_master.csv"),
+]
+
+
+def _year_series(frame, year_col):
+    """Per-year {year, n, conf, <each cat>} where conf = any kept category fires."""
+    out = []
+    yrs = sorted(int(y) for y in frame[year_col].dropna().unique())
+    for yr in yrs:
+        rows = frame[frame[year_col] == yr]
+        present = [c for c in COMMENTARY_CATS if c in rows.columns]
+        conf_mask = rows[present].notna().any(axis=1) if present else pd.Series(False, index=rows.index)
+        entry = {"year": int(yr), "n": int(len(rows)), "conf": int(conf_mask.sum())}
+        for c in COMMENTARY_CATS:
+            entry[c] = int(rows[c].notna().sum()) if c in rows.columns else 0
+        out.append(entry)
+    return out
+
+
+def _src_summary(frame, year_col):
+    present = [c for c in COMMENTARY_CATS if c in frame.columns]
+    conf_mask = frame[present].notna().any(axis=1) if present else pd.Series(False, index=frame.index)
+    n = int(len(frame))
+    return {
+        "n": n,
+        "conf_n": int(conf_mask.sum()),
+        "conf_share": round(conf_mask.mean() * 100, 1) if n else 0,
+        "cats": {c: (int(frame[c].notna().sum()) if c in frame.columns else 0) for c in COMMENTARY_CATS},
+        "by_year": _year_series(frame, year_col),
+    }
+
+commentary_sources = []
+
+# MFA as the reference source (spoken Q&A), on the same six categories
+mfa_frame = df.copy()
+mfa_frame["_y"] = mfa_frame["year_clean"]
+mfa_sum = _src_summary(mfa_frame, "_y")
+mfa_sum.update({"key": "mfa", "label": "MFA press conferences", "sublabel": "spoken Q&A"})
+commentary_sources.append(mfa_sum)
+
+# People's Daily commentary corpora (if their coded masters exist yet)
+for key, label, sublabel, rel in COMMENTARY_SRC:
+    path = os.path.join(COMMENTARY_DIR, rel)
+    if not os.path.exists(path):
+        print(f"  (skip {key}: no master at {rel})")
+        continue
+    cdf = pd.read_csv(path, low_memory=False)
+    cdf["_y"] = pd.to_datetime(cdf["date"], errors="coerce").dt.year
+    cdf = cdf[cdf["_y"].notna()]
+    s = _src_summary(cdf, "_y")
+    s.update({"key": key, "label": label, "sublabel": sublabel})
+    commentary_sources.append(s)
+    print(f"  {key}: {s['n']} pieces, {s['conf_share']}% confrontational")
+
+commentary_compare = {
+    "categories": COMMENTARY_CATS,
+    "sources": commentary_sources,
+    "note": ("The same confrontation categories are applied to spoken MFA Q&A and to official "
+             "People's Daily commentary (钟声/国纪平; “Zhong Sheng” in English). Corpora differ "
+             "in size, so all comparisons are shares, not counts. Commentary is topic-agnostic — "
+             "every 钟声/国纪平 piece, not only those about the international order."),
+}
+with open(os.path.join(OUT_DIR, "commentary_compare.json"), "w") as f:
+    json.dump(commentary_compare, f, ensure_ascii=False)
+print(f"  wrote commentary_compare.json ({len(commentary_sources)} sources)")
+
 print("\nDone.")

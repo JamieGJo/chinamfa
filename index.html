@@ -237,6 +237,11 @@
     .chart-tab { padding: 0.35rem 1rem; font-size: 0.82rem; font-family: sans-serif; background: none; border: none; border-bottom: 2px solid transparent; margin-bottom: -2px; cursor: pointer; color: #888; transition: all 0.15s; }
     .chart-tab.active { color: #1a1a2e; border-bottom-color: #1a1a2e; font-weight: 600; }
     .chart-tab:hover:not(.active) { color: #444; }
+    .commentary-cards { display: flex; gap: 0.9rem; flex-wrap: wrap; margin-top: 0.4rem; }
+    .commentary-card { flex: 1; min-width: 180px; border: 1px solid #e0dbd4; border-left: 4px solid var(--cc); border-radius: 5px; padding: 0.9rem 1.1rem; background: #fbfaf8; }
+    .commentary-card .cc-share { font-size: 2rem; font-weight: 700; color: var(--cc); line-height: 1; }
+    .commentary-card .cc-label { font-size: 0.95rem; font-weight: 600; color: #1a1a2e; margin-top: 0.35rem; }
+    .commentary-card .cc-sub { font-size: 0.78rem; color: #888; font-family: sans-serif; margin-top: 0.15rem; }
 
     /* ── Threat chart toggle buttons ── */
     .threats-toggles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.7rem; align-items: center; }
@@ -357,6 +362,7 @@
     <nav>
       <a href="#map-section">Map 地图</a>
       <a href="#threats">Assertiveness 强硬外交</a>
+      <a href="#commentary">Commentary 评论员</a>
       <a href="#trends">IO mentions 国际秩序</a>
       <a href="#spokespeople">Spokespeople 发言人</a>
       <a href="#topics">Topics &amp; Press 议题与媒体</a>
@@ -511,6 +517,28 @@
   </div>
 </section>
 
+<!-- ── COMMENTARY COMPARISON: podium vs commentariat ── -->
+<section id="commentary">
+  <div class="container">
+    <div class="section-label">Podium vs commentariat · 发布会与评论员</div>
+    <h2>The same confrontation, on the page
+      <span class="zh">同一种对抗，落在纸面</span>
+    </h2>
+    <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">The confrontation coding above is applied to the MFA spokesperson's spoken answers. Here the <em>same six categories</em> — threat, active threat, demand, urge, request, formal representation — are run over China's official <strong>commentary</strong>: the People's Daily 钟声 (<em>Zhong Sheng</em>) and 国纪平 (<em>Guo Jiping</em>) columns — the Party paper's assertive "voice on international affairs", in both the Chinese print edition and the English edition — and China Daily's institutional <strong>editorials</strong>. This sets the diplomat's register beside the editorialist's. The corpora differ hugely in size (tens of thousands of Q&amp;A vs a few hundred op-eds), so everything below is a <strong>share</strong>, never a raw count. Commentary is topic-agnostic — every 钟声/国纪平 piece, not only those about the international order.</p>
+
+    <div id="commentary-cards" class="commentary-cards"></div>
+
+    <div class="chart-tabs" id="commentary-tabs" style="margin-top:1.4rem;">
+      <button class="chart-tab active" data-mode="mix">Confrontation mix by source</button>
+      <button class="chart-tab" data-mode="time">Confrontational share over time</button>
+    </div>
+    <div class="chart-wrap" style="height:340px;">
+      <canvas id="commentary-chart"></canvas>
+    </div>
+    <p id="commentary-note" style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-top:0.6rem;"></p>
+  </div>
+</section>
+
 <!-- ── TRENDS ── -->
 <section id="trends">
   <div class="container">
@@ -653,6 +681,7 @@
       <p>This site draws on the <strong>Chinese Ministry of Foreign Affairs Press Conference Corpus</strong> — a structured dataset of MFA spokesperson Q&amp;A sessions from October 2002 to the present, covering over 35,000 individual exchanges.</p>
       <p>Geographic locations in spokesperson answers were extracted using named entity recognition and manually validated. Country mentions reflect the text of answers only; China itself is excluded from geographic counts as it appears in almost every response.</p>
       <p>The international order trend data tracks monthly frequency of the term 国际秩序 (<em>guójì zhìxù</em>) in spokesperson answers, with VADER sentiment scoring.</p>
+      <p><strong>Podium vs commentariat.</strong> The "same confrontation, on the page" section applies the <em>same</em> confrontation categories to official <strong>commentary</strong> — the People's Daily 钟声 (<em>Zhong Sheng</em>) and 国纪平 (<em>Guo Jiping</em>) columns in the Chinese and English editions (from the people.cn archive), and China Daily's institutional editorials (from chinadaily.com.cn) — coded by a language model on a codebook adapted from the MFA scheme (the six categories that transfer to written editorial voice: threat, active threat, demand, urge, request, representation). Because the commentary corpus is far smaller than the 35,000-exchange press-conference record, the two are compared only as <strong>shares</strong>, never raw counts. Commentary is topic-agnostic — every 钟声/国纪平 piece, not only those about the international order. The corpora update weekly alongside the press conferences.</p>
       <p><strong>Original data source:</strong><br>
       <cite>Mochtak, M., &amp; Turcsanyi, R. Q. (2021). Studying Chinese foreign policy narratives: Introducing the Ministry of Foreign Affairs press conferences corpus. <em>Journal of Chinese Political Science</em>, 26(4), 743–761.</cite><br>
       Data has been updated and coded further by Jamie Gruffydd-Jones.</p>
@@ -687,8 +716,10 @@ Promise.all([
   fetch('data/topics.json').then(r => r.json()),
   fetch('data/articles.json').then(r => r.json()),
   fetch('data/threats_by_month.json').then(r => r.json()),
+  fetch('data/commentary_compare.json').then(r => r.json()).catch(() => null),
 ]).then(([countryData, monthlyData, quarterlyData, threatsData, threatsByCountry,
-          spByYear, spCards, pressData, topicsData, articlesData, threatsByMonth]) => {
+          spByYear, spCards, pressData, topicsData, articlesData, threatsByMonth,
+          commentaryData]) => {
   initHeadlines(countryData, monthlyData);
   initMap(countryData);
   initChart(quarterlyData);
@@ -699,6 +730,7 @@ Promise.all([
   initSpBreakdownChart(spCards);
   initTopicsCharts(topicsData, pressData);
   initExplorer(articlesData, spCards);
+  if (commentaryData) initCommentaryCompare(commentaryData);
 }).catch(err => {
   console.error('Data load error:', err);
   document.getElementById('map').innerHTML =
@@ -1751,6 +1783,110 @@ function initExplorer(articles, cards) {
 
   // Initial render
   applyFilters();
+}
+
+// ── Commentary comparison: podium vs commentariat ──────────────────────────
+
+function initCommentaryCompare(data) {
+  const SRC_COLOR = { mfa: '#2471a3', pd_zh: '#c0291a', pd_en: '#e9a23b', cd: '#6a4c93' };
+  const cats = data.categories;
+  const sources = data.sources;
+  let commentaryChart = null;
+
+  // Headline cards: confrontational share per source
+  const cardWrap = document.getElementById('commentary-cards');
+  cardWrap.innerHTML = sources.map(s => `
+    <div class="commentary-card" style="--cc:${SRC_COLOR[s.key] || '#666'}">
+      <div class="cc-share">${s.conf_share}%</div>
+      <div class="cc-label">${s.label}</div>
+      <div class="cc-sub">${s.sublabel} · n=${s.n.toLocaleString()}</div>
+    </div>`).join('');
+
+  const ctx = document.getElementById('commentary-chart').getContext('2d');
+  const MINN = 8;   // min pieces/year before a commentary share is plotted
+
+  function buildMix() {
+    return {
+      type: 'bar',
+      data: {
+        labels: cats,
+        datasets: sources.map(s => ({
+          label: s.label,
+          data: cats.map(c => s.n ? +(100 * (s.cats[c] || 0) / s.n).toFixed(1) : 0),
+          backgroundColor: SRC_COLOR[s.key] || '#666',
+          borderWidth: 0,
+        })),
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 11 }, usePointStyle: true } },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y}% of pieces` } },
+        },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: '% of pieces with this code' },
+               ticks: { callback: v => v + '%' } },
+          x: { ticks: { font: { size: 11 } } },
+        },
+      },
+    };
+  }
+
+  function buildTime() {
+    const years = [...new Set(sources.flatMap(s => s.by_year.map(y => y.year)))].sort((a, b) => a - b);
+    const labels = years.map(String);
+    return {
+      type: 'line',
+      data: {
+        labels,
+        datasets: sources.map(s => {
+          const byYr = Object.fromEntries(s.by_year.map(y => [y.year, y]));
+          return {
+            label: s.label,
+            data: years.map(y => {
+              const e = byYr[y];
+              if (!e || e.n < (s.key === 'mfa' ? 1 : MINN)) return null;
+              return +(100 * e.conf / e.n).toFixed(1);
+            }),
+            borderColor: SRC_COLOR[s.key] || '#666',
+            backgroundColor: SRC_COLOR[s.key] || '#666',
+            borderWidth: s.key === 'mfa' ? 2.5 : 2,
+            pointRadius: 2, pointHoverRadius: 5, tension: 0.3, spanGaps: true,
+          };
+        }),
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'top', labels: { font: { size: 11 }, usePointStyle: true } },
+          tooltip: { callbacks: { label: c => `${c.dataset.label}: ${c.parsed.y}% confrontational` } },
+        },
+        scales: {
+          y: { beginAtZero: true, title: { display: true, text: '% of pieces confrontational' },
+               ticks: { callback: v => v + '%' } },
+          x: { ticks: { font: { size: 11 }, maxRotation: 0, autoSkip: true, maxTicksLimit: 12 } },
+        },
+      },
+    };
+  }
+
+  const NOTES = {
+    mix: 'Share of each source’s pieces that carry each confrontation code. A single piece can carry several codes, so bars need not sum to 100%. Same six-category codebook applied to spoken Q&A and to written commentary.',
+    time: `Share of each source’s pieces per year that are confrontational (carry any code). Commentary years with fewer than ${MINN} pieces are omitted as too thin to plot. Shares, not counts; descriptive.`,
+  };
+
+  function render(mode) {
+    if (commentaryChart) commentaryChart.destroy();
+    commentaryChart = new Chart(ctx, mode === 'time' ? buildTime() : buildMix());
+    document.getElementById('commentary-note').textContent = NOTES[mode];
+    document.querySelectorAll('#commentary-tabs .chart-tab')
+      .forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+  }
+
+  document.querySelectorAll('#commentary-tabs .chart-tab').forEach(tab => {
+    tab.addEventListener('click', () => render(tab.dataset.mode));
+  });
+  render('mix');
 }
 </script>
 </body>
