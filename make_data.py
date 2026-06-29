@@ -884,7 +884,7 @@ COMMENTARY_CATS = ["Threat", "Active threat", "Demand", "Urge", "Request", "Repr
 COMMENTARY_DIR = os.path.join(SCRIPT_DIR, "../../data/raw-extracts/commentary")
 COMMENTARY_SRC = [
     # key, label, sublabel, master path (relative to COMMENTARY_DIR)
-    ("pd_zh", "People's Daily 钟声 / 国纪平", "Chinese commentary",
+    ("pd_zh", "People's Daily commentary (Chinese)", "钟声 · 和音 · 国际论坛 · 望海楼 · 国纪平",
      "pd_zh/pd_commentary_master.csv"),
     ("pd_en", "People's Daily “Zhong Sheng”", "English commentary",
      "pd_en/pd_en_commentary_master.csv"),
@@ -943,13 +943,25 @@ for key, label, sublabel, rel in COMMENTARY_SRC:
     commentary_sources.append(s)
     print(f"  {key}: {s['n']} pieces, {s['conf_share']}% confrontational")
 
+    # 钟声 (Zhong Sheng) broken out as its OWN source — the flagship, most confrontational
+    # column — so its distinct signal isn't diluted into the all-columns PD aggregate.
+    if key == "pd_zh" and "column" in cdf.columns:
+        zs = cdf[cdf["column"].astype(str).str.contains("钟声", na=False)]
+        if len(zs):
+            zsum = _src_summary(zs, "_y")
+            zsum.update({"key": "pd_zh_zs", "label": "People's Daily 钟声 (Zhong Sheng)",
+                         "sublabel": "Chinese · flagship column"})
+            commentary_sources.append(zsum)
+            print(f"  pd_zh_zs (钟声 only): {zsum['n']} pieces, {zsum['conf_share']}% confrontational")
+
 commentary_compare = {
     "categories": COMMENTARY_CATS,
     "sources": commentary_sources,
     "note": ("The same confrontation categories are applied to spoken MFA Q&A and to official "
-             "People's Daily commentary (钟声/国纪平; “Zhong Sheng” in English). Corpora differ "
-             "in size, so all comparisons are shares, not counts. Commentary is topic-agnostic — "
-             "every 钟声/国纪平 piece, not only those about the international order."),
+             "People's Daily foreign-affairs commentary (钟声, 和音, 国际论坛, 望海楼, 国纪平; the "
+             "translated “Zhong Sheng” in English) and China Daily editorials. 钟声 is also shown "
+             "on its own — the flagship, most confrontational column. Corpora differ in size, so "
+             "all comparisons are shares, not counts. Commentary is topic-agnostic."),
 }
 with open(os.path.join(OUT_DIR, "commentary_compare.json"), "w") as f:
     json.dump(commentary_compare, f, ensure_ascii=False)
