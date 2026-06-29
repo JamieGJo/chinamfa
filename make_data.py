@@ -922,12 +922,33 @@ def _src_summary(frame, year_col):
 
 commentary_sources = []
 
-# MFA as the reference source (spoken Q&A), on the same six categories
+# MFA as the reference source (spoken Q&A), on the same six categories.
+# UNIT NOTE: this counts each Q&A pair. Commentary sources count whole articles, so the
+# per-exchange MFA share is not unit-comparable with them — see mfa_day below.
 mfa_frame = df.copy()
 mfa_frame["_y"] = mfa_frame["year_clean"]
 mfa_sum = _src_summary(mfa_frame, "_y")
-mfa_sum.update({"key": "mfa", "label": "MFA press conferences", "sublabel": "spoken Q&A"})
+mfa_sum.update({"key": "mfa", "label": "MFA — per exchange", "sublabel": "share of Q&A pairs"})
 commentary_sources.append(mfa_sum)
+
+# MFA at the PRESS-CONFERENCE (day) level — one row per briefing, a category present if ANY
+# Q&A that day carried it. This is the unit-comparable reference for the article-level
+# commentary sources (a whole article ≈ a whole briefing as a "communication event").
+_md = df.copy()
+_md["_dt"] = pd.to_datetime(_md["date"], errors="coerce")
+_md = _md[_md["_dt"].notna()]
+_dcats = [c for c in COMMENTARY_CATS if c in df.columns]
+_day_rows = []
+for _d, _g in _md.groupby(_md["_dt"].dt.date):
+    _rec = {"_y": _d.year}
+    for c in COMMENTARY_CATS:
+        _rec[c] = 1.0 if (c in _dcats and _g[c].notna().any()) else float("nan")
+    _day_rows.append(_rec)
+mfa_day_frame = pd.DataFrame(_day_rows)
+mfa_day_sum = _src_summary(mfa_day_frame, "_y")
+mfa_day_sum.update({"key": "mfa_day", "label": "MFA — per briefing",
+                    "sublabel": "≥1 confrontational exchange/day"})
+commentary_sources.append(mfa_day_sum)
 
 # People's Daily commentary corpora (if their coded masters exist yet)
 for key, label, sublabel, rel in COMMENTARY_SRC:

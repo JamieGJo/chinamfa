@@ -536,7 +536,7 @@
     <div class="caveat-box">
       <h4>How to read these numbers — important</h4>
       <p>An independent audit confirmed these shares are <em>computed correctly</em> and that the <em>ranking</em> holds over a common 2022–2026 window. But the <strong>gaps are not apples-to-apples</strong> — read them with four things in mind:</p>
-      <p><span class="big">1. Different units.</span> The MFA figure counts each <em>question-and-answer exchange</em> separately (~10 per briefing); the commentary figures count <em>whole articles</em>. A spokesperson who is confrontational in one of ten questions still scores low. Counted per <em>briefing</em>, the MFA is confrontational on about <strong>33% of days</strong> — far closer to the commentary than the 5% suggests.</p>
+      <p><span class="big">1. Different units — both MFA bars are shown.</span> "MFA — per exchange" counts each <em>question-and-answer</em> separately (~10 per briefing), so a spokesperson confrontational in one of ten questions still scores low (5%). "MFA — per briefing" counts each <em>press conference</em> as one event — confrontational on <strong>33% of days</strong>, far closer to the article-level commentary. The commentary figures count <em>whole articles</em>, so the per-briefing bar is the unit-comparable one.</p>
       <p><span class="big">2. Chinese reads hotter than English.</span> The <em>same</em> 钟声 column scores <strong>79% in Chinese but 38%</strong> in its English edition. Part is genuine softening for foreign audiences; part is that Chinese phrasing (必须, 必将, 坚决) trips the coder more readily than its English translation. Compare like with like.</p>
       <p><span class="big">3. One column vs many.</span> "People's Daily (all columns)" averages the combative 钟声 (79%) with cooperation-framed columns (17–24%) — which is exactly why 钟声 is shown on its own.</p>
       <p><span class="big">4. "Confrontational" lumps mild and severe together.</span> It means <em>any</em> of the six acts fired — from a polite urge to an active threat. The <strong>Confrontation mix</strong> tab below shows sources confront in different ways: the MFA via formal protests, China Daily via calls-to-action, 钟声 via demands and threats.</p>
@@ -1802,7 +1802,7 @@ function initExplorer(articles, cards) {
 // ── Commentary comparison: podium vs commentariat ──────────────────────────
 
 function initCommentaryCompare(data) {
-  const SRC_COLOR = { mfa: '#2471a3', pd_zh: '#c0291a', pd_zh_zs: '#8b1a1a', pd_en: '#e9a23b', cd: '#6a4c93' };
+  const SRC_COLOR = { mfa: '#2471a3', mfa_day: '#7fb3d8', pd_zh: '#c0291a', pd_zh_zs: '#8b1a1a', pd_en: '#e9a23b', cd: '#6a4c93' };
   const cats = data.categories;
   const sources = data.sources;
   let commentaryChart = null;
