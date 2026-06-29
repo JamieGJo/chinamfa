@@ -881,6 +881,11 @@ print(f"  wrote threats_by_country.json ({len(threats_by_country)} countries)")
 print("Building commentary_compare …")
 
 COMMENTARY_CATS = ["Threat", "Active threat", "Demand", "Urge", "Request", "Representations"]
+# Ordinal intensity weights (audit: the binary `confrontational` flag is severity-blind — it lumps
+# a mild Urge with an Active threat). A piece's severity = the weight of its STRONGEST act; a
+# source's mean severity (0–5, incl. non-confrontational pieces at 0) is a severity-aware analogue
+# of the confrontational share. Weights are a transparent ordinal scale, not tuned to results.
+SEVERITY_W = {"Active threat": 5, "Threat": 4, "Demand": 3, "Representations": 2, "Urge": 1, "Request": 0.5}
 COMMENTARY_DIR = os.path.join(SCRIPT_DIR, "../../data/raw-extracts/commentary")
 COMMENTARY_SRC = [
     # key, label, sublabel, master path (relative to COMMENTARY_DIR)
@@ -912,11 +917,23 @@ def _src_summary(frame, year_col):
     present = [c for c in COMMENTARY_CATS if c in frame.columns]
     conf_mask = frame[present].notna().any(axis=1) if present else pd.Series(False, index=frame.index)
     n = int(len(frame))
+    cats = {c: (int(frame[c].notna().sum()) if c in frame.columns else 0) for c in COMMENTARY_CATS}
+    # per-piece severity = weight of the strongest act present; source mean over ALL pieces
+    if present and n:
+        sev = frame[present].apply(
+            lambda r: max((SEVERITY_W[c] for c in present if pd.notna(r[c])), default=0), axis=1)
+        mean_sev = round(float(sev.mean()), 2)
+    else:
+        mean_sev = 0.0
+    conf_cats = {c: v for c, v in cats.items() if v > 0}
+    dominant_mode = max(conf_cats, key=conf_cats.get) if conf_cats else None
     return {
         "n": n,
         "conf_n": int(conf_mask.sum()),
         "conf_share": round(conf_mask.mean() * 100, 1) if n else 0,
-        "cats": {c: (int(frame[c].notna().sum()) if c in frame.columns else 0) for c in COMMENTARY_CATS},
+        "cats": cats,
+        "mean_severity": mean_sev,                 # 0–5 ordinal intensity (severity-aware)
+        "dominant_mode": dominant_mode,            # most common confrontational act for this source
         "by_year": _year_series(frame, year_col),
     }
 
@@ -977,6 +994,7 @@ for key, label, sublabel, rel in COMMENTARY_SRC:
 
 commentary_compare = {
     "categories": COMMENTARY_CATS,
+    "severity_weights": SEVERITY_W,
     "sources": commentary_sources,
     "note": ("The same confrontation categories are applied to spoken MFA Q&A and to official "
              "People's Daily foreign-affairs commentary (钟声, 和音, 国际论坛, 望海楼, 国纪平; the "

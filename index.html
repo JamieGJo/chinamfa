@@ -247,6 +247,7 @@
     .commentary-card .cc-share { font-size: 2rem; font-weight: 700; color: var(--cc); line-height: 1; }
     .commentary-card .cc-label { font-size: 0.95rem; font-weight: 600; color: #1a1a2e; margin-top: 0.35rem; }
     .commentary-card .cc-sub { font-size: 0.78rem; color: #888; font-family: sans-serif; margin-top: 0.15rem; }
+    .commentary-card .cc-mode { font-size: 0.76rem; color: #555; font-family: sans-serif; margin-top: 0.35rem; padding-top: 0.3rem; border-top: 1px dotted #ddd; }
 
     /* ── Threat chart toggle buttons ── */
     .threats-toggles { display: flex; flex-wrap: wrap; gap: 0.4rem; margin-bottom: 0.7rem; align-items: center; }
@@ -544,6 +545,7 @@
 
     <div class="chart-tabs" id="commentary-tabs" style="margin-top:1.4rem;">
       <button class="chart-tab active" data-mode="mix">Confrontation mix by source</button>
+      <button class="chart-tab" data-mode="severity">Intensity &amp; mode</button>
       <button class="chart-tab" data-mode="time">Confrontational share over time</button>
     </div>
     <div class="chart-wrap" style="height:340px;">
@@ -1807,13 +1809,14 @@ function initCommentaryCompare(data) {
   const sources = data.sources;
   let commentaryChart = null;
 
-  // Headline cards: confrontational share per source
+  // Headline cards: confrontational share + dominant mode per source
   const cardWrap = document.getElementById('commentary-cards');
   cardWrap.innerHTML = sources.map(s => `
     <div class="commentary-card" style="--cc:${SRC_COLOR[s.key] || '#666'}">
       <div class="cc-share">${s.conf_share}%</div>
       <div class="cc-label">${s.label}</div>
       <div class="cc-sub">${s.sublabel} · n=${s.n.toLocaleString()}</div>
+      ${s.dominant_mode ? `<div class="cc-mode">mostly <b>${s.dominant_mode}</b> · intensity ${s.mean_severity}/5</div>` : ''}
     </div>`).join('');
 
   const ctx = document.getElementById('commentary-chart').getContext('2d');
@@ -1884,14 +1887,47 @@ function initCommentaryCompare(data) {
     };
   }
 
+  function buildSeverity() {
+    const ordered = [...sources];
+    return {
+      type: 'bar',
+      data: {
+        labels: ordered.map(s => s.label),
+        datasets: [{
+          data: ordered.map(s => s.mean_severity),
+          backgroundColor: ordered.map(s => SRC_COLOR[s.key] || '#666'),
+          borderWidth: 0,
+        }],
+      },
+      options: {
+        indexAxis: 'y',
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: { callbacks: { label: c => {
+            const s = ordered[c.dataIndex];
+            return `intensity ${s.mean_severity}/5 · mostly ${s.dominant_mode || '—'}`;
+          } } },
+        },
+        scales: {
+          x: { beginAtZero: true, suggestedMax: 3,
+               title: { display: true, text: 'mean intensity — strongest act per piece (0–5)' } },
+          y: { ticks: { font: { size: 10 } } },
+        },
+      },
+    };
+  }
+
   const NOTES = {
     mix: 'Share of each source’s pieces that carry each confrontation code. A single piece can carry several codes, so bars need not sum to 100%. Same six-category codebook applied to spoken Q&A and to written commentary.',
+    severity: 'Severity-weighted intensity, which the binary “confrontational” flag can’t see. Each piece scores the weight of its STRONGEST act (Active threat 5 · Threat 4 · Demand 3 · Representation 2 · Urge 1 · Request 0.5), averaged over every piece (non-confrontational = 0). It separates a source that mostly urges (China Daily) from one that mostly demands (钟声). Weights are an ordinal scale, not tuned to results.',
     time: `Share of each source’s pieces per year that are confrontational (carry any code). Commentary years with fewer than ${MINN} pieces are omitted as too thin to plot. Shares, not counts; descriptive.`,
   };
 
   function render(mode) {
     if (commentaryChart) commentaryChart.destroy();
-    commentaryChart = new Chart(ctx, mode === 'time' ? buildTime() : buildMix());
+    const build = mode === 'time' ? buildTime : (mode === 'severity' ? buildSeverity : buildMix);
+    commentaryChart = new Chart(ctx, build());
     document.getElementById('commentary-note').textContent = NOTES[mode];
     document.querySelectorAll('#commentary-tabs .chart-tab')
       .forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
