@@ -1018,4 +1018,89 @@ with open(os.path.join(OUT_DIR, "commentary_compare.json"), "w") as f:
     json.dump(commentary_compare, f, ensure_ascii=False)
 print(f"  wrote commentary_compare.json ({len(commentary_sources)} sources)")
 
+# Per-piece EXPLORER feed — the confrontational commentary pieces, so readers can read the actual
+# editorials. Chinese pieces (pd_zh) carry zh=True so the site renders a Google-Translate link;
+# English pieces (pd_en / China Daily) link straight to the source. Only the confrontational pieces
+# are shipped (the aggregate charts above already carry the denominator), keeping the feed small.
+print("Building commentary_articles (explorer feed) …")
+SRC_LABEL = {"pd_zh": "People's Daily", "pd_en": "People's Daily (English)", "cd": "China Daily"}
+commentary_articles = []
+for key, label, sublabel, rel in COMMENTARY_SRC:
+    if key == "pd_en" and PD_EN_RECODE_PENDING:
+        continue
+    path = os.path.join(COMMENTARY_DIR, rel)
+    if not os.path.exists(path):
+        continue
+    a = pd.read_csv(path, low_memory=False)
+    a["_dt"] = pd.to_datetime(a["date"], errors="coerce")
+    a = a[a["_dt"].notna()]
+    present = [c for c in COMMENTARY_CATS if c in a.columns]
+    conf = a[a[present].notna().any(axis=1)] if present else a.iloc[0:0]
+    for _, r in conf.iterrows():
+        commentary_articles.append({
+            "date": r["_dt"].strftime("%Y-%m-%d"),
+            "year": int(r["_dt"].year),
+            "src": key,
+            "src_label": SRC_LABEL.get(key, key),
+            "column": str(r.get("column", "") or ""),
+            "title": str(r.get("title", "") or "").strip(),
+            "codes": [c for c in present if pd.notna(r[c])],
+            "zh": key == "pd_zh",                       # Chinese → render a translate link
+            "url": str(r.get("url", "") or ""),
+        })
+commentary_articles.sort(key=lambda x: x["date"], reverse=True)
+with open(os.path.join(OUT_DIR, "commentary_articles.json"), "w") as f:
+    json.dump(commentary_articles, f, ensure_ascii=False)
+print(f"  wrote commentary_articles.json ({len(commentary_articles)} confrontational pieces)")
+
+# ── State-media PARALLEL feeds (for the map + over-time toggles) ───────────────────────────────
+# Combined PD (Chinese + English) + China Daily commentary on the SAME confrontation categories as
+# the MFA series (the kept five — Request excluded, matching the rest of the commentary analysis),
+# so the map and the over-time chart can toggle the spoken MFA record against the written one.
+print("Building state-media parallel feeds (sm_threats_*) …")
+sm_frames = []
+for key, label, sublabel, rel in COMMENTARY_SRC:
+    if key == "pd_en" and PD_EN_RECODE_PENDING:
+        continue
+    p = os.path.join(COMMENTARY_DIR, rel)
+    if os.path.exists(p):
+        f = pd.read_csv(p, low_memory=False)
+        f["_dt"] = pd.to_datetime(f["date"], errors="coerce")
+        sm_frames.append(f[f["_dt"].notna()])
+sm = pd.concat(sm_frames, ignore_index=True) if sm_frames else pd.DataFrame()
+sm_cats = [c for c in COMMENTARY_CATS if c in sm.columns]            # the kept five
+sm["_conf"] = sm[sm_cats].notna().any(axis=1) if (sm_cats and len(sm)) else False
+
+def _sm_bucket(col):
+    out = {}
+    for gk, g in sm.groupby(col):
+        rec = {"total": int(g["_conf"].sum()), "corpus_total": int(len(g))}
+        for c in sm_cats:
+            rec[c] = int(g[c].notna().sum())
+        out[gk] = rec
+    return out
+
+sm["_yr"] = sm["_dt"].dt.year
+sm_year = [dict(year=int(y), **rec) for y, rec in sorted(_sm_bucket("_yr").items())]
+with open(os.path.join(OUT_DIR, "sm_threats_by_year.json"), "w") as fh:
+    json.dump(sm_year, fh)
+sm["_mo"] = sm["_dt"].dt.month
+sm_month = [dict(month=int(m), **rec) for m, rec in sorted(_sm_bucket("_mo").items())]
+with open(os.path.join(OUT_DIR, "sm_threats_by_month.json"), "w") as fh:
+    json.dump(sm_month, fh)
+# by target country (confrontational pieces only) → ISO3 via the MFA CONF_ISO_MAP
+sm_country = {}
+for _, r in sm[sm["_conf"]].iterrows():
+    iso = CONF_ISO_MAP.get(str(r.get("subject_country", "") or "").strip())
+    if not iso:
+        continue
+    rec = sm_country.setdefault(iso, {"total": 0, **{c: 0 for c in sm_cats}})
+    rec["total"] += 1
+    for c in sm_cats:
+        if pd.notna(r[c]):
+            rec[c] += 1
+with open(os.path.join(OUT_DIR, "sm_threats_by_country.json"), "w") as fh:
+    json.dump(sm_country, fh)
+print(f"  wrote sm_threats_by_year ({len(sm_year)} yrs) / by_month / by_country ({len(sm_country)} countries)")
+
 print("\nDone.")

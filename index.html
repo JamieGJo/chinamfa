@@ -224,6 +224,15 @@
     .article-a { font-size: 0.88rem; color: #222; line-height: 1.6; }
     .article-a::before { content: 'A: '; font-weight: 700; color: #b5000f; }
     .article-link { font-family: sans-serif; font-size: 0.75rem; color: #b5000f; margin-top: 0.4rem; }
+    /* commentary explorer cards */
+    .cx-title { font-size: 0.95rem; color: #1a1a1a; line-height: 1.45; margin: 0.2rem 0 0.1rem; font-weight: 600; }
+    .cx-title.zh { font-family: 'Noto Serif SC','SimSun',serif; }
+    .article-meta .cx-src { font-weight: 700; color: #b5000f; }
+    .article-meta .cx-col { color: #777; }
+    .cx-links { display: flex; flex-wrap: wrap; gap: 0.9rem; margin-top: 0.5rem; }
+    .cx-links a { font-family: sans-serif; font-size: 0.78rem; color: #b5000f; text-decoration: none; border-bottom: 1px solid #e3b7b7; }
+    .cx-links a:hover { border-bottom-color: #b5000f; }
+    .cx-links a.secondary { color: #888; border-bottom-color: #ddd; }
     .load-more-wrap { text-align: center; margin-top: 1.2rem; }
     .load-more {
       padding: 0.55rem 2rem; background: white; border: 1px solid #b5000f;
@@ -242,6 +251,28 @@
     .caveat-box p { font-size: 0.86rem; color: #4a4a4a; margin: 0 0 0.55rem; line-height: 1.5; }
     .caveat-box p:last-child { margin-bottom: 0; }
     .caveat-box .big { font-weight: 700; color: #8a1f12; }
+    /* collapsible source / how-to-read notes */
+    .source-note { margin-top: 0.7rem; font-family: sans-serif; }
+    .source-note > summary { cursor: pointer; font-size: 0.82rem; color: #b5000f; font-weight: 600; list-style: none; padding: 0.25rem 0; }
+    .source-note > summary::-webkit-details-marker { display: none; }
+    .source-note > summary::before { content: '▸ '; }
+    .source-note[open] > summary::before { content: '▾ '; }
+    .source-note .sn-body { font-size: 0.84rem; color: #555; line-height: 1.55; padding: 0.5rem 0 0.2rem; max-width: 60rem; }
+    .source-note .sn-body p { margin: 0 0 0.55rem; }
+    .source-note .sn-body p:last-child { margin-bottom: 0; }
+    .source-note .sn-body .big { font-weight: 700; color: #8a1f12; }
+    /* source toggle (MFA vs state media) */
+    .src-toggle { display: inline-flex; gap: 0; margin: 0.9rem 0 0.2rem; border: 1px solid #d3ccc2; border-radius: 5px; overflow: hidden; }
+    .src-toggle button { padding: 0.4rem 0.9rem; font-size: 0.82rem; font-family: sans-serif; background: #fff; border: none; border-right: 1px solid #e6e0d8; cursor: pointer; color: #777; transition: all 0.15s; }
+    .src-toggle button:last-child { border-right: none; }
+    .src-toggle button.active { background: #1a1a2e; color: #fff; font-weight: 600; }
+    .src-toggle button:hover:not(.active) { background: #f3efe9; color: #333; }
+    /* caveat box as a dropdown */
+    details.caveat-box > summary { margin: 0; font-size: 0.95rem; color: #8a1f12; font-family: sans-serif; font-weight: 700; letter-spacing: 0.01em; cursor: pointer; list-style: none; }
+    details.caveat-box > summary::-webkit-details-marker { display: none; }
+    details.caveat-box > summary::before { content: '▸ '; }
+    details.caveat-box[open] > summary::before { content: '▾ '; }
+    details.caveat-box[open] > summary { margin-bottom: 0.6rem; }
     .commentary-cards { display: flex; gap: 0.9rem; flex-wrap: wrap; margin-top: 0.4rem; }
     .commentary-card { flex: 1; min-width: 180px; border: 1px solid #e0dbd4; border-left: 4px solid var(--cc); border-radius: 5px; padding: 0.9rem 1.1rem; background: #fbfaf8; }
     .commentary-card .cc-share { font-size: 2rem; font-weight: 700; color: var(--cc); line-height: 1; }
@@ -448,6 +479,10 @@
     <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">This section measures confrontational language in the spokesperson's <em>own</em> answers — instances where China itself issues a threat, makes a demand, urges or requests action of another party, or lodges a formal diplomatic representation. These are markers of China's diplomatic assertiveness, not of pressure on China. Use the tabs to switch between yearly <strong>counts</strong>, each code's <strong>share</strong>, confrontational exchanges <strong>vs the whole corpus</strong>, and seasonality <strong>by calendar month</strong>. (A separate category, attacks on Chinese nationals abroad, is shown only on the map further down.)</p>
     <p id="threats-mode-note" style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-bottom:1rem;">Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。</p>
 
+    <div class="src-toggle" id="threats-src-toggle" role="tablist" aria-label="Data source">
+      <button class="active" data-src="mfa">MFA press conference</button>
+      <button data-src="sm">State media commentary</button>
+    </div>
     <div class="chart-tabs" id="threats-tabs">
       <button class="chart-tab active" data-mode="count">Counts</button>
       <button class="chart-tab" data-mode="share">Share by code</button>
@@ -500,11 +535,23 @@
       </details>
     </div>
     <p class="expand-note" style="margin-top:0.6rem;">Note: a single exchange can be coded for multiple categories. Counts reflect press conference exchanges, not real-world incidents. The corpus covers 2003–2026; 2026 is partial.</p>
+    <details class="source-note">
+      <summary>About these sources — MFA vs state media 数据来源说明</summary>
+      <div class="sn-body">
+        <p><span class="big">MFA press conference</span> — confrontational acts in the spokesperson's spoken answers, by year (2003–2026). "Vs whole corpus" compares the confrontational subset to all ~35,000 exchanges.</p>
+        <p><span class="big">State media commentary</span> — the same acts in combined People's Daily commentary columns (钟声, 和音, 国际论坛, 望海楼, 国纪平, plus the English-edition 钟声) and China Daily editorials — 706 confrontational pieces, 2007–2026, coded by the validated Sonnet coder (κ ≈ 0.61). The mild "request" tier is excluded (matching the commentary analysis), so it shows five acts; "vs whole corpus" compares confrontational pieces to all commentary pieces that year.</p>
+        <p>Levels are <span class="big">not unit-comparable</span> (spoken Q&amp;A vs whole articles) and the state-media series is far smaller — read each on its own scale; the comparable signals are the <em>shares</em>, the <em>mix</em> of acts, and the <em>timing</em>.</p>
+      </div>
+    </details>
 
     <h3 style="margin-top:2rem;font-size:1.1rem;">Who is China pushing back against?
       <span class="zh" style="display:block;font-size:0.85rem;color:#555;font-weight:400;margin-top:3px;">中国强硬外交的地理分布</span>
     </h3>
     <p style="font-size:0.9rem;color:#555;margin-top:0.5rem;">Which countries are most often the subject of exchanges where China issues a threat, demand, urge, or formal representation — or, for "Attacked abroad," where Chinese nationals and interests were targeted overseas? Select a category in the panel to filter the map. Hover a country for a count breakdown.</p>
+    <div class="src-toggle" id="map-src-toggle" role="tablist" aria-label="Data source">
+      <button class="active" data-src="mfa">MFA press conference</button>
+      <button data-src="sm">State media commentary</button>
+    </div>
     <div class="threats-map-wrap">
       <div class="ttype-panel" id="ttype-panel">
         <div class="ttype-panel-label">Filter by type</div>
@@ -520,6 +567,14 @@
       <div id="threats-map" style="flex:1;height:420px;border-radius:4px;border:1px solid #ddd;min-width:0;"></div>
     </div>
     <p class="map-note" style="margin-top:0.5rem;">Countries are coded from the question text (<em>q_loc</em> field) — they reflect which country the exchange was about, i.e. the target or subject of China's pushback (or, for "Attacked abroad," where the attack occurred), not necessarily who initiated the underlying dispute. The United States and Taiwan account for the largest share by a wide margin.</p>
+    <details class="source-note">
+      <summary>About these sources — MFA vs state media 数据来源说明</summary>
+      <div class="sn-body">
+        <p><span class="big">MFA press conference</span> — the spokesperson's spoken answers (2003–2026, ~35,000 Q&amp;A exchanges). A country is counted when it is the subject of an exchange in which China issues a threat, demand, urge or representation; target country from the <em>q_loc</em> field.</p>
+        <p><span class="big">State media commentary</span> — combined People's Daily foreign-affairs columns (钟声, 和音, 国际论坛, 望海楼, 国纪平, plus the English-edition 钟声) and China Daily editorials — the 706 pieces flagged confrontational. A country is counted when it is the <em>subject</em> of such a piece, on the same five acts (threat, active threat, demand, urge, representation; the mild "request" tier is excluded, as in the validated commentary coding, κ ≈ 0.61). Non-country targets (EU, NATO, G7) are omitted from the map.</p>
+        <p>The two are <span class="big">not unit-comparable in level</span> — one counts spoken Q&amp;A, the other whole articles — so read each map on its own scale; the comparable signal is the <em>geography</em> of who China pushes back against. "Request", "Attacked abroad" and "Protested" exist only for the MFA record.</p>
+      </div>
+    </details>
   </div>
 </section>
 
@@ -534,14 +589,14 @@
 
     <div id="commentary-cards" class="commentary-cards"></div>
 
-    <div class="caveat-box">
-      <h4>How to read these numbers — important</h4>
+    <details class="caveat-box">
+      <summary>How to read these numbers — important</summary>
       <p>These shares come from the project's <strong>validated confrontation coder</strong> (Claude Sonnet, codebook v4 — Cohen's <em>κ</em> = 0.61 against a hand-coded gold standard, within the 0.6–0.8 band the project's other coders reach; the mild "Request" tier is excluded as it sits below the confrontation line). An independent audit confirmed the shares are <em>computed correctly</em>. Still, the <strong>gaps are not apples-to-apples</strong> — read them with four things in mind:</p>
       <p><span class="big">1. Different units — both MFA bars are shown.</span> "MFA — per exchange" counts each <em>question-and-answer</em> separately (~10 per briefing), so a spokesperson confrontational in one of ten questions still scores low (5%). "MFA — per briefing" counts each <em>press conference</em> as one event — confrontational on <strong>32% of days</strong>, far closer to the article-level commentary. The commentary figures count <em>whole articles</em>, so the per-briefing bar is the unit-comparable one.</p>
       <p><span class="big">2. Chinese reads a little hotter than English.</span> The same 钟声 column scores <strong>32% in Chinese</strong> versus <strong>25%</strong> in its English edition (<code>pd_en</code>) — a modest gap. (The old loose coder exaggerated this to 79% vs 38%; the validated coder narrows it.) Chinese phrasing (必须, 必将, 坚决) still trips the coder somewhat more readily than English, so compare the Chinese PD columns and the English China Daily with that in mind.</p>
       <p><span class="big">3. One column vs many.</span> "People's Daily (all columns)" averages the combative 钟声 (<strong>32%</strong>) with much quieter columns (望海楼 9%, 国际论坛 3%, 和音 0%) — which is exactly why 钟声 is shown on its own.</p>
       <p><span class="big">4. "Confrontational" lumps mild and severe together.</span> It means <em>any</em> of the five counted acts fired — from a polite urge to an active threat. The <strong>Confrontation mix</strong> tab below shows sources confront in different ways: the MFA and China Daily most often via threats, 钟声 via demands.</p>
-    </div>
+    </details>
 
     <div class="chart-tabs" id="commentary-tabs" style="margin-top:1.4rem;">
       <button class="chart-tab active" data-mode="mix">Confrontation mix by source</button>
@@ -632,13 +687,21 @@
 <!-- ── ARTICLE EXPLORER ── -->
 <section id="explorer">
   <div class="container">
-    <div class="section-label">Article explorer · 问答检索</div>
-    <h2>Search the press conference record
-      <span class="zh">检索新闻发布会问答</span>
+    <div class="section-label">Record explorer · 全记录检索</div>
+    <h2>Search the record
+      <span class="zh">检索全记录</span>
     </h2>
-    <p style="font-size:0.9rem;color:#555;margin-bottom:1rem;">Browse all exchanges flagged as confrontational or mentioning "international order" (2,298 records). Filter by year, spokesperson, confrontation type, or search for keywords in the question or answer text.</p>
+    <p style="font-size:0.9rem;color:#555;margin-bottom:1rem;">Browse the flagged records from <strong>both</strong> sources — MFA press-conference exchanges (confrontational or mentioning "international order") and state-media commentary pieces flagged confrontational (People's Daily columns + China Daily editorials). Choose a source, filter by year and confrontation type, or search the text. Each Chinese commentary piece links to a Google-Translate view of the original. Both update weekly.</p>
 
     <div class="explorer-filters">
+      <div class="filter-group">
+        <label>Source</label>
+        <select id="f-source">
+          <option value="">All sources</option>
+          <option value="mfa">MFA press conference</option>
+          <option value="sm">State media commentary</option>
+        </select>
+      </div>
       <div class="filter-group">
         <label>Year from</label>
         <select id="f-year-from">
@@ -673,7 +736,7 @@
       </div>
       <div class="filter-group">
         <label>Search text</label>
-        <input type="text" id="f-search" placeholder="keywords in Q or A …">
+        <input type="text" id="f-search" placeholder="keywords (Q&amp;A or headline) / 关键词 …">
       </div>
       <button class="filter-reset" id="f-reset">Clear filters</button>
     </div>
@@ -733,19 +796,23 @@ Promise.all([
   fetch('data/articles.json').then(r => r.json()),
   fetch('data/threats_by_month.json').then(r => r.json()),
   fetch('data/commentary_compare.json').then(r => r.json()).catch(() => null),
+  fetch('data/commentary_articles.json').then(r => r.json()).catch(() => null),
+  fetch('data/sm_threats_by_year.json').then(r => r.json()).catch(() => null),
+  fetch('data/sm_threats_by_month.json').then(r => r.json()).catch(() => null),
+  fetch('data/sm_threats_by_country.json').then(r => r.json()).catch(() => null),
 ]).then(([countryData, monthlyData, quarterlyData, threatsData, threatsByCountry,
           spByYear, spCards, pressData, topicsData, articlesData, threatsByMonth,
-          commentaryData]) => {
+          commentaryData, commentaryArticles, smYear, smMonth, smCountry]) => {
   initHeadlines(countryData, monthlyData);
   initMap(countryData);
   initChart(quarterlyData);
-  initThreatsChart(threatsData, threatsByMonth);
-  initThreatsMap(threatsByCountry);
+  initThreatsChart(threatsData, threatsByMonth, smYear, smMonth);
+  initThreatsMap(threatsByCountry, smCountry);
   initSpChart(spByYear);
   initSpCards(spCards);
   initSpBreakdownChart(spCards);
   initTopicsCharts(topicsData, pressData);
-  initExplorer(articlesData, spCards);
+  initExplorer(articlesData, spCards, commentaryArticles);
   if (commentaryData) initCommentaryCompare(commentaryData);
 }).catch(err => {
   console.error('Data load error:', err);
@@ -1048,7 +1115,8 @@ function initChart(quarterly) {
 
 // ── Threats Map ──────────────────────────────────────────────────────────
 
-function initThreatsMap(byCountry) {
+function initThreatsMap(mfaByCountry, smByCountry) {
+  let byCountry = mfaByCountry;
   const tmap = L.map('threats-map', {
     center: [20, 15], zoom: 2, minZoom: 1, maxZoom: 6, worldCopyJump: true
   });
@@ -1136,60 +1204,93 @@ function initThreatsMap(byCountry) {
       }).addTo(tmap);
     });
 
+  function restyle() {
+    if (threatGeoLayer) threatGeoLayer.setStyle(feature => ({
+      fillColor: getColor(feature.properties['ISO3166-1-Alpha-3'], currentType),
+      weight: 0.5, opacity: 1, color: '#aaa', fillOpacity: 0.85
+    }));
+  }
+
   // Wire filter panel buttons
   document.querySelectorAll('#ttype-panel .ttype-btn').forEach(btn => {
     btn.addEventListener('click', () => {
       currentType = btn.dataset.type;
       document.querySelectorAll('#ttype-panel .ttype-btn').forEach(b => b.classList.remove('active'));
       btn.classList.add('active');
-      if (threatGeoLayer) {
-        threatGeoLayer.setStyle(feature => ({
-          fillColor: getColor(feature.properties['ISO3166-1-Alpha-3'], currentType),
-          weight: 0.5, opacity: 1, color: '#aaa', fillOpacity: 0.85
-        }));
+      restyle();
+    });
+  });
+
+  // Source toggle: MFA spoken record vs combined state-media commentary
+  const SM_HIDE = ['Request', 'China attacked'];   // categories absent from the state-media feed
+  document.querySelectorAll('#map-src-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const src = btn.dataset.src;
+      byCountry = (src === 'sm') ? (smByCountry || {}) : mfaByCountry;
+      document.querySelectorAll('#map-src-toggle button').forEach(b => b.classList.toggle('active', b === btn));
+      document.querySelectorAll('#ttype-panel .ttype-btn').forEach(b => {
+        b.style.display = (src === 'sm' && SM_HIDE.includes(b.dataset.type)) ? 'none' : '';
+      });
+      if (src === 'sm' && SM_HIDE.includes(currentType)) {
+        currentType = 'total';
+        document.querySelectorAll('#ttype-panel .ttype-btn').forEach(b =>
+          b.classList.toggle('active', b.dataset.type === 'total'));
       }
+      restyle();
     });
   });
 }
 
 // ── Threats Chart ────────────────────────────────────────────────────────
 
-function initThreatsChart(threats, monthly) {
+function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly) {
   const ctx = document.getElementById('threats-chart').getContext('2d');
-  // Drop empty leading years (2002 has no confrontational exchanges)
-  threats = threats.filter(d => d.year >= 2003);
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  const series = [
-    { key: 'Active threat',   label: 'Active threat',           color: '#6d1a36' },
-    { key: 'Threat',          label: 'Threat',                  color: '#c0291a' },
-    { key: 'Demand',          label: 'Demand',                  color: '#f4a261' },
-    { key: 'Urge',            label: 'Urge',                    color: '#e9c46a' },
-    { key: 'Request',         label: 'Request',                 color: '#a8c5da' },
-    { key: 'Representations', label: 'Representations (China)', color: '#457b9d' },
+  const SERIES_MFA = [
+    { key: 'Active threat',   label: 'Active threat',           color: '#6d1a36', idx: 0 },
+    { key: 'Threat',          label: 'Threat',                  color: '#c0291a', idx: 1 },
+    { key: 'Demand',          label: 'Demand',                  color: '#f4a261', idx: 2 },
+    { key: 'Urge',            label: 'Urge',                    color: '#e9c46a', idx: 3 },
+    { key: 'Request',         label: 'Request',                 color: '#a8c5da', idx: 4 },
+    { key: 'Representations', label: 'Representations (China)', color: '#457b9d', idx: 5 },
   ];
+  const SERIES_SM = SERIES_MFA.filter(s => s.key !== 'Request');   // state media: Request excluded
 
+  let source  = 'mfa';
+  let threats = (mfaThreats || []).filter(d => d.year >= 2003);   // drop empty 2002
+  let monthly = mfaMonthly || [];
+  let series  = SERIES_MFA;
+  let unit    = 'exchanges';
   let viewMode = 'count';
   let soloIdx = null;
   let chart = null;
 
   const NOTES = {
-    count: 'Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。',
-    share: 'Each bar is the share of that year’s confrontational exchanges that carry the code. Because one exchange can carry several codes at once (and “Active threat” is a subset of “Threat”), the codes overlap and do <em>not</em> sum to 100% — so they are shown side by side, not stacked. Click a category above to isolate it.',
-    corpus: 'Grey bars = all MFA press-conference exchanges that year; red bars = the subset coded confrontational; the line is the confrontation rate (red, right axis). Confrontational exchanges are a small fraction of the corpus, but their share climbs from 2018.',
-    month: 'Seasonality across all years pooled (2003–2026). Each bar is the share of <em>that calendar month’s</em> exchanges that carry the code. August’s elevated rate reflects a small denominator — far fewer briefings during the summer recess. Codes overlap, so they needn’t sum to a total. Click a category above to isolate it.',
+    mfa: {
+      count: 'Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。',
+      share: 'Each bar is the share of that year’s confrontational exchanges that carry the code. Because one exchange can carry several codes at once (and “Active threat” is a subset of “Threat”), the codes overlap and do <em>not</em> sum to 100% — so they are shown side by side, not stacked. Click a category above to isolate it.',
+      corpus: 'Grey bars = all MFA press-conference exchanges that year; red bars = the subset coded confrontational; the line is the confrontation rate (red, right axis). Confrontational exchanges are a small fraction of the corpus, but their share climbs from 2018.',
+      month: 'Seasonality across all years pooled (2003–2026). Each bar is the share of <em>that calendar month’s</em> exchanges that carry the code. August’s elevated rate reflects a small denominator — far fewer briefings during the summer recess. Codes overlap, so they needn’t sum to a total. Click a category above to isolate it.',
+    },
+    sm: {
+      count: 'Note: a single commentary piece can carry several acts, so the segments sum to <em>more</em> than the number of distinct pieces; the dashed line shows the actual piece count. 注：单篇评论可含多种对抗行为，故各类之和可能超过实际篇数。',
+      share: 'Each bar is the share of that year’s confrontational state-media pieces that carry the act. Pieces can carry several acts at once, so the bars overlap and do <em>not</em> sum to 100%. Click an act above to isolate it.',
+      corpus: 'Grey bars = all state-media commentary pieces that year; red bars = the confrontational subset; the line is the confrontation rate (right axis). The state-media corpus (706 flagged pieces, 2007–2026) is far smaller than the MFA record, and China Daily only enters from 2022.',
+      month: 'Seasonality across all years pooled. Each bar is the share of <em>that calendar month’s</em> commentary pieces that carry the act. Monthly denominators are small for state media — read cautiously.',
+    },
   };
 
   // Build the six code bar datasets for a row set, given a value function
   function codeDatasets(rows, valueFn, stacked) {
-    return series.map((s, i) => ({
+    return series.map(s => ({
       type: 'bar',
       label: s.label,
       data: rows.map(d => valueFn(d, s)),
       backgroundColor: s.color,
       stack: stacked ? 'threats' : undefined,
       borderWidth: 0,
-      _codeIdx: i,
+      _codeIdx: s.idx,
     }));
   }
 
@@ -1205,7 +1306,7 @@ function initThreatsChart(threats, monthly) {
       const datasets = codeDatasets(threats, valueFn, !isShare);
       if (!isShare) {
         datasets.push({
-          type: 'line', label: 'Total exchanges (distinct)',
+          type: 'line', label: 'Total ' + unit + ' (distinct)',
           data: threats.map(d => d.total),
           borderColor: '#222', borderWidth: 2, borderDash: [6, 4],
           pointRadius: 3, pointBackgroundColor: '#222', fill: false, tension: 0, order: 0,
@@ -1235,7 +1336,7 @@ function initThreatsChart(threats, monthly) {
             y: {
               stacked: !isShare, beginAtZero: true,
               ticks: { font: { size: 11 }, callback: v => isShare ? v + '%' : v },
-              title: { display: true, text: isShare ? '% of confrontational exchanges carrying each code' : 'Annual count (bars multi-count; line = exchanges)', font: { size: 11 } }
+              title: { display: true, text: isShare ? ('% of confrontational ' + unit + ' carrying each code') : ('Annual count (bars multi-count; line = ' + unit + ')'), font: { size: 11 } }
             }
           }
         }
@@ -1246,7 +1347,7 @@ function initThreatsChart(threats, monthly) {
         data: {
           labels: threats.map(d => d.year),
           datasets: [
-            { type: 'bar', label: 'All exchanges', data: threats.map(d => d.corpus_total), backgroundColor: 'rgba(150,150,150,0.45)', borderWidth: 0, yAxisID: 'y', order: 3 },
+            { type: 'bar', label: 'All ' + unit, data: threats.map(d => d.corpus_total), backgroundColor: 'rgba(150,150,150,0.45)', borderWidth: 0, yAxisID: 'y', order: 3 },
             { type: 'bar', label: 'Confrontational', data: threats.map(d => d.total), backgroundColor: '#c0291a', borderWidth: 0, yAxisID: 'y', order: 2 },
             { type: 'line', label: 'Confrontation rate (%)', data: threats.map(d => d.corpus_total ? +(d.total / d.corpus_total * 100).toFixed(1) : 0), borderColor: '#6d1a36', backgroundColor: '#6d1a36', borderWidth: 2.5, pointRadius: 2, fill: false, tension: 0.3, yAxisID: 'y1', order: 0 },
           ]
@@ -1267,7 +1368,7 @@ function initThreatsChart(threats, monthly) {
           },
           scales: {
             x: { grid: { display: false }, ticks: { font: { size: 11 } } },
-            y: { position: 'left', beginAtZero: true, title: { display: true, text: 'Exchanges per year', font: { size: 11 } } },
+            y: { position: 'left', beginAtZero: true, title: { display: true, text: (unit === 'pieces' ? 'Pieces' : 'Exchanges') + ' per year', font: { size: 11 } } },
             y1: { position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, ticks: { callback: v => v + '%' }, title: { display: true, text: 'Confrontation rate', font: { size: 11 } } }
           }
         }
@@ -1292,7 +1393,7 @@ function initThreatsChart(threats, monthly) {
           scales: {
             x: { grid: { display: false }, ticks: { font: { size: 11 } } },
             y: { beginAtZero: true, ticks: { callback: v => v + '%', font: { size: 11 } },
-                 title: { display: true, text: '% of that month’s exchanges carrying each code', font: { size: 11 } } }
+                 title: { display: true, text: '% of that month’s ' + unit + ' carrying each code', font: { size: 11 } } }
           }
         }
       };
@@ -1323,12 +1424,27 @@ function initThreatsChart(threats, monthly) {
     // Category toggles are meaningless in the corpus view
     document.getElementById('threats-toggles').style.display = (mode === 'corpus') ? 'none' : 'flex';
     const note = document.getElementById('threats-mode-note');
-    if (note) note.innerHTML = NOTES[mode];
+    if (note) note.innerHTML = NOTES[source][mode];
     document.querySelectorAll('#threats-tabs .chart-tab').forEach(t => t.classList.toggle('active', t.dataset.mode === mode));
+  }
+
+  function switchSource(src) {
+    source = src;
+    if (src === 'sm') { threats = (smThreats || []).filter(d => (d.total + d.corpus_total) > 0); monthly = smMonthly || []; series = SERIES_SM; unit = 'pieces'; }
+    else { threats = (mfaThreats || []).filter(d => d.year >= 2003); monthly = mfaMonthly || []; series = SERIES_MFA; unit = 'exchanges'; }
+    soloIdx = null;
+    // Request has no state-media series — hide its category toggle when showing state media
+    const reqBtn = document.querySelector('#threats-toggles .ttog-btn[data-series="4"]');
+    if (reqBtn) reqBtn.style.display = (src === 'sm') ? 'none' : '';
+    document.querySelectorAll('#threats-src-toggle button').forEach(b => b.classList.toggle('active', b.dataset.src === src));
+    switchMode(viewMode);
   }
 
   document.querySelectorAll('#threats-tabs .chart-tab').forEach(tab => {
     tab.addEventListener('click', () => switchMode(tab.dataset.mode));
+  });
+  document.querySelectorAll('#threats-src-toggle button').forEach(btn => {
+    btn.addEventListener('click', () => switchSource(btn.dataset.src));
   });
 
   document.querySelectorAll('#threats-toggles .ttog-btn').forEach(btn => {
@@ -1696,7 +1812,8 @@ function tagClass(tag) {
 }
 
 function renderCard(art) {
-  const tags = art.tags.map(t =>
+  if (art._src === 'sm') return renderCxCard(art);   // state-media commentary card
+  const tags = (art.tags || []).map(t =>
     `<span class="tag ${tagClass(t)}">${t}</span>`
   ).join('');
   const spColor = spColorMap[art.spokesperson] || '#555';
@@ -1724,14 +1841,16 @@ function applyFilters() {
   const yearTo   = parseInt(document.getElementById('f-year-to').value)   || 9999;
   const sp       = document.getElementById('f-sp').value;
   const tag      = document.getElementById('f-tag').value;
+  const source   = document.getElementById('f-source').value;
   const search   = document.getElementById('f-search').value.trim().toLowerCase();
 
   filteredData = explorerData.filter(a => {
+    if (source && a._src !== source) return false;
     if (a.year && (a.year < yearFrom || a.year > yearTo)) return false;
-    if (sp && a.spokesperson !== sp) return false;
-    if (tag && !a.tags.includes(tag)) return false;
+    if (sp && a.spokesperson !== sp) return false;          // only MFA records carry a spokesperson
+    if (tag && !(a.tags || []).includes(tag)) return false;
     if (search) {
-      const hay = (a.question + ' ' + a.answer).toLowerCase();
+      const hay = (a._src === 'sm' ? (a.title || '') : (a.question + ' ' + a.answer)).toLowerCase();
       if (!hay.includes(search)) return false;
     }
     return true;
@@ -1755,14 +1874,17 @@ function showMore() {
   btn.style.display = shownCount < filteredData.length ? 'inline-block' : 'none';
 }
 
-function initExplorer(articles, cards) {
-  explorerData = articles;
+function initExplorer(articles, cards, smArticles) {
+  // Merge the MFA press-conference record with the state-media commentary stories into one feed.
+  explorerData = (articles || []).map(a => ({ ...a, _src: 'mfa' }))
+    .concat((smArticles || []).map(a => ({ ...a, _src: 'sm', tags: a.codes || [], spokesperson: '' })))
+    .sort((a, b) => (b.date || '').localeCompare(a.date || ''));
 
   // Build spokesperson color map from cards
   cards.forEach(c => { spColorMap[c.name] = c.color; });
 
-  // Populate year dropdowns
-  const years = [...new Set(articles.map(a => a.year).filter(Boolean))].sort();
+  // Populate year dropdowns (both sources)
+  const years = [...new Set(explorerData.map(a => a.year).filter(Boolean))].sort();
   const fromSel = document.getElementById('f-year-from');
   const toSel   = document.getElementById('f-year-to');
   years.forEach(y => {
@@ -1780,7 +1902,7 @@ function initExplorer(articles, cards) {
   });
 
   // Event listeners
-  ['f-year-from','f-year-to','f-sp','f-tag'].forEach(id =>
+  ['f-year-from','f-year-to','f-sp','f-tag','f-source'].forEach(id =>
     document.getElementById(id).addEventListener('change', applyFilters)
   );
   document.getElementById('f-search').addEventListener('input', () => {
@@ -1792,6 +1914,7 @@ function initExplorer(articles, cards) {
     document.getElementById('f-year-to').value = years[years.length - 1] || '';
     document.getElementById('f-sp').value = '';
     document.getElementById('f-tag').value = '';
+    document.getElementById('f-source').value = '';
     document.getElementById('f-search').value = '';
     applyFilters();
   });
@@ -1801,6 +1924,33 @@ function initExplorer(articles, cards) {
   applyFilters();
 }
 
+// ── State-media commentary card (reused by the merged record explorer; Chinese → Google Translate) ──
+function cxTranslateUrl(u) {
+  return 'https://translate.google.com/translate?sl=auto&tl=en&u=' + encodeURIComponent(u);
+}
+function renderCxCard(a) {
+  const tags = (a.codes || []).map(c => `<span class="tag ${tagClass(c)}">${c}</span>`).join('');
+  const title = a.title
+    ? `<div class="cx-title${a.zh ? ' zh' : ''}">${a.title}</div>` : '';
+  let links = '';
+  if (a.url) {
+    links = a.zh
+      ? `<div class="cx-links"><a href="${cxTranslateUrl(a.url)}" target="_blank" rel="noopener">Read in English ↗</a>`
+        + `<a class="secondary" href="${a.url}" target="_blank" rel="noopener">原文 ↗</a></div>`
+      : `<div class="cx-links"><a href="${a.url}" target="_blank" rel="noopener">Source ↗</a></div>`;
+  }
+  const col = a.column ? ` <span class="cx-col">${a.column}</span>` : '';
+  return `
+    <div class="article-card">
+      <div class="article-meta">
+        <span class="meta-date">${a.date || 'n/d'}</span>
+        <span class="cx-src">${a.src_label}</span>${col}
+      </div>
+      ${tags ? `<div class="article-tags">${tags}</div>` : ''}
+      ${title}
+      ${links}
+    </div>`;
+}
 // ── Commentary comparison: podium vs commentariat ──────────────────────────
 
 function initCommentaryCompare(data) {
