@@ -880,7 +880,12 @@ print(f"  wrote threats_by_country.json ({len(threats_by_country)} countries)")
 # few hundred op-eds), so the comparison is on confrontational SHARE, never raw counts.
 print("Building commentary_compare …")
 
-COMMENTARY_CATS = ["Threat", "Active threat", "Demand", "Urge", "Request", "Representations"]
+# Request is EXCLUDED from the confrontational construct: the κ validation showed it is the
+# mild "general-policy should" tier that sits below the confrontation line — the human coder
+# barely used it (1×) while the model over-fired it (10×). Dropping it raised agreement from
+# κ 0.51 → 0.61 and matched the human confrontational share. (Request is still coded and kept in
+# the masters for the record; it just isn't counted here.) See analysis/validation/2026-06-29…/.
+COMMENTARY_CATS = ["Threat", "Active threat", "Demand", "Urge", "Representations"]
 # Ordinal intensity weights (audit: the binary `confrontational` flag is severity-blind — it lumps
 # a mild Urge with an Active threat). A piece's severity = the weight of its STRONGEST act; a
 # source's mean severity (0–5, incl. non-confrontational pieces at 0) is a severity-aware analogue
@@ -896,6 +901,10 @@ COMMENTARY_SRC = [
     ("cd", "China Daily editorials", "English commentary",
      "cd/cd_commentary_master.csv"),
 ]
+# pd_en (English “Zhong Sheng”) has now been re-coded on the validated Sonnet+v4 coder (2026-06-30,
+# Batch + codebook caching): 24.9% confrontational (Request excluded), consistent with the other
+# sources and close to the Chinese 钟声 (32.4%). It is INCLUDED again. (Set True to drop it.)
+PD_EN_RECODE_PENDING = False
 
 
 def _year_series(frame, year_col):
@@ -969,6 +978,9 @@ commentary_sources.append(mfa_day_sum)
 
 # People's Daily commentary corpora (if their coded masters exist yet)
 for key, label, sublabel, rel in COMMENTARY_SRC:
+    if key == "pd_en" and PD_EN_RECODE_PENDING:
+        print("  (skip pd_en: re-code pending — still on old coder; see PD_EN_RECODE_PENDING)")
+        continue
     path = os.path.join(COMMENTARY_DIR, rel)
     if not os.path.exists(path):
         print(f"  (skip {key}: no master at {rel})")
