@@ -400,7 +400,7 @@
       <a href="#map-section">Map 地图</a>
       <a href="#threats">Assertiveness 强硬外交</a>
       <a href="#commentary">Commentary 评论员</a>
-      <a href="#trends">IO mentions 国际秩序</a>
+      <!-- [IO-HIDDEN 2026-06-30] <a href="#trends">IO mentions 国际秩序</a> -->
       <a href="#spokespeople">Spokespeople 发言人</a>
       <a href="#topics">Topics &amp; Press 议题与媒体</a>
       <a href="#explorer">Explorer 检索</a>
@@ -424,11 +424,13 @@
         <div class="label">Of country-tagged answers mention the United States</div>
         <span class="zh">涉及美国的回答占比</span>
       </div>
+      <!-- [IO-HIDDEN 2026-06-30]
       <div class="headline-card">
         <div class="stat">Sep 2020</div>
         <div class="label">Peak month for "international order" mentions</div>
         <span class="zh">"国际秩序"提及量最高峰</span>
       </div>
+      -->
       <div class="headline-card">
         <div class="stat" id="stat-countries">—</div>
         <div class="label">Countries and territories mentioned across the corpus</div>
@@ -484,7 +486,8 @@
       <button data-src="sm">State media commentary</button>
     </div>
     <div class="chart-tabs" id="threats-tabs">
-      <button class="chart-tab active" data-mode="count">Counts</button>
+      <button class="chart-tab active" data-mode="count">Counts: yearly</button>
+      <button class="chart-tab" data-mode="roll3">Counts: rolling 3-monthly</button>
       <button class="chart-tab" data-mode="share">Share by code</button>
       <button class="chart-tab" data-mode="corpus">Vs whole corpus</button>
       <button class="chart-tab" data-mode="month">By month</button>
@@ -585,7 +588,7 @@
     <h2>The same confrontation, on the page
       <span class="zh">同一种对抗，落在纸面</span>
     </h2>
-    <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">The confrontation coding above is applied to the MFA spokesperson's spoken answers. Here the <em>same six categories</em> — threat, active threat, demand, urge, request, formal representation — are run over China's official <strong>commentary</strong>: the People's Daily's dedicated foreign-affairs columns — 钟声 (<em>Zhong Sheng</em>), 和音 (<em>Heyin</em>), 国际论坛 (International Forum), 望海楼 (<em>Wanghailou</em>) and 国纪平 (<em>Guo Jiping</em>), the Party paper's assertive "voice on international affairs" (its English-edition 钟声 shown alongside) — and China Daily's institutional <strong>editorials</strong>. This sets the diplomat's register beside the editorialist's. The corpora differ hugely in size (tens of thousands of Q&amp;A vs a few hundred op-eds), so everything below is a <strong>share</strong>, never a raw count. Commentary is topic-agnostic — every 钟声/国纪平 piece, not only those about the international order.</p>
+    <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">The confrontation coding above is applied to the MFA spokesperson's spoken answers. Here the <em>same six categories</em> — threat, active threat, demand, urge, request, formal representation — are run over China's official <strong>commentary</strong>: the People's Daily's dedicated foreign-affairs columns — 钟声 (<em>Zhong Sheng</em>), 和音 (<em>Heyin</em>), 国际论坛 (International Forum), 望海楼 (<em>Wanghailou</em>) and 国纪平 (<em>Guo Jiping</em>), the Party paper's assertive "voice on international affairs" (its English-edition 钟声 shown alongside) — and China Daily's institutional <strong>editorials</strong>. This sets the diplomat's register beside the editorialist's. The corpora differ hugely in size (tens of thousands of Q&amp;A vs a few hundred op-eds), so everything below is a <strong>share</strong>, never a raw count. Commentary is topic-agnostic — every 钟声/国纪平 piece.</p>
 
     <div id="commentary-cards" class="commentary-cards"></div>
 
@@ -610,7 +613,7 @@
   </div>
 </section>
 
-<!-- ── TRENDS ── -->
+<!-- [IO-HIDDEN 2026-06-30] "Mentions of international order by quarter" hidden. Re-add: uncomment this section, restore initChart(quarterlyData) in the bootstrap and the #trends nav link, and set HIDE_IO=False in make_data.py.
 <section id="trends">
   <div class="container">
     <div class="section-label">Trend · 趋势</div>
@@ -630,6 +633,7 @@
     </div>
   </div>
 </section>
+-->
 
 <!-- ── SPOKESPEOPLE ── -->
 <section id="spokespeople">
@@ -638,7 +642,7 @@
     <h2>Who speaks for China?
       <span class="zh">中国外交部发言人一览</span>
     </h2>
-    <p style="font-size:0.9rem;color:#555;">This chart shows each spokesperson's activity across the corpus; the cards below summarise key stats, including the share of their exchanges coded as confrontational and how often "international order" featured in their answers.</p>
+    <p style="font-size:0.9rem;color:#555;">This chart shows each spokesperson's activity across the corpus; the cards below summarise key stats, including the share of their exchanges coded as confrontational.</p>
 
     <div class="chart-wrap" style="height:320px;margin-bottom:1.5rem;">
       <canvas id="sp-chart"></canvas>
@@ -691,7 +695,7 @@
     <h2>Search the record
       <span class="zh">检索全记录</span>
     </h2>
-    <p style="font-size:0.9rem;color:#555;margin-bottom:1rem;">Browse the flagged records from <strong>both</strong> sources — MFA press-conference exchanges (confrontational or mentioning "international order") and state-media commentary pieces flagged confrontational (People's Daily columns + China Daily editorials). Choose a source, filter by year and confrontation type, or search the text. Each Chinese commentary piece links to a Google-Translate view of the original. Both update weekly.</p>
+    <p style="font-size:0.9rem;color:#555;margin-bottom:1rem;">Browse the flagged records from <strong>both</strong> sources — MFA press-conference exchanges flagged confrontational and state-media commentary pieces flagged confrontational (People's Daily columns + China Daily editorials). Choose a source, filter by year and confrontation type, or search the text. Each Chinese commentary piece links to a Google-Translate view of the original. Both update weekly.</p>
 
     <div class="explorer-filters">
       <div class="filter-group">
@@ -724,7 +728,7 @@
         <label>Type</label>
         <select id="f-tag">
           <option value="">All types</option>
-          <option value="IO mention">IO mention</option>
+          <!-- [IO-HIDDEN 2026-06-30] <option value="IO mention">IO mention</option> -->
           <option value="Active threat">Active threat</option>
           <option value="Attacked abroad">Attacked abroad</option>
           <option value="Threat">Threat</option>
@@ -759,8 +763,8 @@
     <div class="about-box">
       <p>This site draws on the <strong>Chinese Ministry of Foreign Affairs Press Conference Corpus</strong> — a structured dataset of MFA spokesperson Q&amp;A sessions from October 2002 to the present, covering over 35,000 individual exchanges.</p>
       <p>Geographic locations in spokesperson answers were extracted using named entity recognition and manually validated. Country mentions reflect the text of answers only; China itself is excluded from geographic counts as it appears in almost every response.</p>
-      <p>The international order trend data tracks monthly frequency of the term 国际秩序 (<em>guójì zhìxù</em>) in spokesperson answers, with VADER sentiment scoring.</p>
-      <p><strong>Podium vs commentariat.</strong> The "same confrontation, on the page" section applies the <em>same</em> confrontation categories to official <strong>commentary</strong> — the People's Daily's dedicated foreign-affairs commentary columns (钟声, 和音, 国际论坛, 望海楼, 国纪平 in the Chinese edition; the translated 钟声 / "Zhong Sheng" in the English edition; from the people.cn archive), and China Daily's institutional editorials (from chinadaily.com.cn) — coded by a language model on a codebook adapted from the MFA scheme (the six categories that transfer to written editorial voice: threat, active threat, demand, urge, request, representation). Foreign-affairs opinion in People's Daily is concentrated in these dedicated columns; the paper's other editorial genres are predominantly domestic. Because the commentary corpus is far smaller than the 35,000-exchange press-conference record, the two are compared only as <strong>shares</strong>, never raw counts. Commentary is topic-agnostic — every 钟声/国纪平 piece, not only those about the international order. The corpora update weekly alongside the press conferences.</p>
+      <!-- [IO-HIDDEN 2026-06-30] <p>The international order trend data tracks monthly frequency of the term 国际秩序 (<em>guójì zhìxù</em>) in spokesperson answers, with VADER sentiment scoring.</p> -->
+      <p><strong>Podium vs commentariat.</strong> The "same confrontation, on the page" section applies the <em>same</em> confrontation categories to official <strong>commentary</strong> — the People's Daily's dedicated foreign-affairs commentary columns (钟声, 和音, 国际论坛, 望海楼, 国纪平 in the Chinese edition; the translated 钟声 / "Zhong Sheng" in the English edition; from the people.cn archive), and China Daily's institutional editorials (from chinadaily.com.cn) — coded by a language model on a codebook adapted from the MFA scheme (the six categories that transfer to written editorial voice: threat, active threat, demand, urge, request, representation). Foreign-affairs opinion in People's Daily is concentrated in these dedicated columns; the paper's other editorial genres are predominantly domestic. Because the commentary corpus is far smaller than the 35,000-exchange press-conference record, the two are compared only as <strong>shares</strong>, never raw counts. Commentary is topic-agnostic — every 钟声/国纪平 piece. The corpora update weekly alongside the press conferences.</p>
       <p><strong>Original data source:</strong><br>
       <cite>Mochtak, M., &amp; Turcsanyi, R. Q. (2021). Studying Chinese foreign policy narratives: Introducing the Ministry of Foreign Affairs press conferences corpus. <em>Journal of Chinese Political Science</em>, 26(4), 743–761.</cite><br>
       Data has been updated and coded further by Jamie Gruffydd-Jones.</p>
@@ -800,13 +804,15 @@ Promise.all([
   fetch('data/sm_threats_by_year.json').then(r => r.json()).catch(() => null),
   fetch('data/sm_threats_by_month.json').then(r => r.json()).catch(() => null),
   fetch('data/sm_threats_by_country.json').then(r => r.json()).catch(() => null),
+  fetch('data/threats_by_yearmonth.json').then(r => r.json()).catch(() => null),
+  fetch('data/sm_threats_by_yearmonth.json').then(r => r.json()).catch(() => null),
 ]).then(([countryData, monthlyData, quarterlyData, threatsData, threatsByCountry,
           spByYear, spCards, pressData, topicsData, articlesData, threatsByMonth,
-          commentaryData, commentaryArticles, smYear, smMonth, smCountry]) => {
+          commentaryData, commentaryArticles, smYear, smMonth, smCountry, mfaYM, smYM]) => {
   initHeadlines(countryData, monthlyData);
   initMap(countryData);
-  initChart(quarterlyData);
-  initThreatsChart(threatsData, threatsByMonth, smYear, smMonth);
+  // [IO-HIDDEN 2026-06-30] initChart(quarterlyData);
+  initThreatsChart(threatsData, threatsByMonth, smYear, smMonth, mfaYM, smYM);
   initThreatsMap(threatsByCountry, smCountry);
   initSpChart(spByYear);
   initSpCards(spCards);
@@ -1243,7 +1249,7 @@ function initThreatsMap(mfaByCountry, smByCountry) {
 
 // ── Threats Chart ────────────────────────────────────────────────────────
 
-function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly) {
+function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly, mfaYM, smYM) {
   const ctx = document.getElementById('threats-chart').getContext('2d');
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -1260,6 +1266,7 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly) {
   let source  = 'mfa';
   let threats = (mfaThreats || []).filter(d => d.year >= 2003);   // drop empty 2002
   let monthly = mfaMonthly || [];
+  let ym      = (mfaYM || []).filter(d => d.year >= 2003);        // continuous year-month (rolling view)
   let series  = SERIES_MFA;
   let unit    = 'exchanges';
   let viewMode = 'count';
@@ -1272,12 +1279,14 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly) {
       share: 'Each bar is the share of that year’s confrontational exchanges that carry the code. Because one exchange can carry several codes at once (and “Active threat” is a subset of “Threat”), the codes overlap and do <em>not</em> sum to 100% — so they are shown side by side, not stacked. Click a category above to isolate it.',
       corpus: 'Grey bars = all MFA press-conference exchanges that year; red bars = the subset coded confrontational; the line is the confrontation rate (red, right axis). Confrontational exchanges are a small fraction of the corpus, but their share climbs from 2018.',
       month: 'Seasonality across all years pooled (2003–2026). Each bar is the share of <em>that calendar month’s</em> exchanges that carry the code. August’s elevated rate reflects a small denominator — far fewer briefings during the summer recess. Codes overlap, so they needn’t sum to a total. Click a category above to isolate it.',
+      roll3: 'Confrontational exchanges by month, summed over a <strong>trailing 3-month window</strong> to smooth the noise of individual briefings (and the summer recess). Bars multi-count — one exchange can carry several codes — and the dashed line is the rolling 3-month total of distinct exchanges. Click a category above to isolate it.',
     },
     sm: {
       count: 'Note: a single commentary piece can carry several acts, so the segments sum to <em>more</em> than the number of distinct pieces; the dashed line shows the actual piece count. 注：单篇评论可含多种对抗行为，故各类之和可能超过实际篇数。',
       share: 'Each bar is the share of that year’s confrontational state-media pieces that carry the act. Pieces can carry several acts at once, so the bars overlap and do <em>not</em> sum to 100%. Click an act above to isolate it.',
       corpus: 'Grey bars = all state-media commentary pieces that year; red bars = the confrontational subset; the line is the confrontation rate (right axis). The state-media corpus (706 flagged pieces, 2007–2026) is far smaller than the MFA record, and China Daily only enters from 2022.',
       month: 'Seasonality across all years pooled. Each bar is the share of <em>that calendar month’s</em> commentary pieces that carry the act. Monthly denominators are small for state media — read cautiously.',
+      roll3: 'Confrontational commentary pieces by month, summed over a <strong>trailing 3-month window</strong>. Bars multi-count; the dashed line is the rolling 3-month total of distinct pieces. China Daily enters the corpus in 2022, lifting the volume. Click an act above to isolate it.',
     },
   };
 
@@ -1292,6 +1301,17 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly) {
       borderWidth: 0,
       _codeIdx: s.idx,
     }));
+  }
+
+  // trailing 3-month rolling sum of each active series key + the total, over a chronological set
+  function rolling3(rows) {
+    const keys = series.map(s => s.key).concat(['total']);
+    return rows.map((d, i) => {
+      const w = rows.slice(Math.max(0, i - 2), i + 1);
+      const out = { ym: d.ym, year: d.year };
+      keys.forEach(k => { out[k] = w.reduce((a, r) => a + (r[k] || 0), 0); });
+      return out;
+    });
   }
 
   function buildChart(mode) {
@@ -1338,6 +1358,37 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly) {
               ticks: { font: { size: 11 }, callback: v => isShare ? v + '%' : v },
               title: { display: true, text: isShare ? ('% of confrontational ' + unit + ' carrying each code') : ('Annual count (bars multi-count; line = ' + unit + ')'), font: { size: 11 } }
             }
+          }
+        }
+      };
+    } else if (mode === 'roll3') {
+      const rolled = rolling3(ym);
+      const datasets = codeDatasets(rolled, (d, s) => d[s.key] || 0, true);
+      datasets.push({
+        type: 'line', label: 'Total ' + unit + ' (distinct, 3-mo)',
+        data: rolled.map(d => d.total),
+        borderColor: '#222', borderWidth: 1.6, borderDash: [5, 3],
+        pointRadius: 0, fill: false, tension: 0.2, order: 0,
+      });
+      config = {
+        type: 'bar',
+        data: { labels: rolled.map(d => d.ym), datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              mode: 'index', filter: it => !it.dataset.hidden,
+              callbacks: {
+                title: c => '3 months to ' + c[0].label,
+                label: c => (c.raw === null || c.raw === 0) ? null : `${c.dataset.label}: ${c.raw}`,
+              }
+            }
+          },
+          scales: {
+            x: { stacked: true, grid: { display: false }, ticks: { font: { size: 10 }, autoSkip: true, maxTicksLimit: 14 } },
+            y: { stacked: true, beginAtZero: true, ticks: { font: { size: 11 } },
+                 title: { display: true, text: 'Rolling 3-month count (bars multi-count; line = ' + unit + ')', font: { size: 11 } } }
           }
         }
       };
@@ -1430,8 +1481,8 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly) {
 
   function switchSource(src) {
     source = src;
-    if (src === 'sm') { threats = (smThreats || []).filter(d => (d.total + d.corpus_total) > 0); monthly = smMonthly || []; series = SERIES_SM; unit = 'pieces'; }
-    else { threats = (mfaThreats || []).filter(d => d.year >= 2003); monthly = mfaMonthly || []; series = SERIES_MFA; unit = 'exchanges'; }
+    if (src === 'sm') { threats = (smThreats || []).filter(d => (d.total + d.corpus_total) > 0); monthly = smMonthly || []; ym = smYM || []; series = SERIES_SM; unit = 'pieces'; }
+    else { threats = (mfaThreats || []).filter(d => d.year >= 2003); monthly = mfaMonthly || []; ym = (mfaYM || []).filter(d => d.year >= 2003); series = SERIES_MFA; unit = 'exchanges'; }
     soloIdx = null;
     // Request has no state-media series — hide its category toggle when showing state media
     const reqBtn = document.querySelector('#threats-toggles .ttog-btn[data-series="4"]');
@@ -1628,7 +1679,7 @@ function initSpCards(cards) {
       <div class="sp-years">${c.year_min || '?'} – ${c.year_max || '?'}</div>
       ${postLine}
       <div class="sp-stat"><span>Exchanges</span><span class="sp-val">${c.n_total.toLocaleString()}</span></div>
-      <div class="sp-stat"><span>IO mentions</span><span class="sp-val">${c.n_io}</span></div>
+      <!-- [IO-HIDDEN 2026-06-30] <div class="sp-stat"><span>IO mentions</span><span class="sp-val">${c.n_io}</span></div> -->
       <div class="sp-stat"><span>Confrontation rate</span><span class="sp-val">${c.conf_rate}%</span></div>
       ${breakdown}
       ${toggle}

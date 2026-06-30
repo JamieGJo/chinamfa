@@ -682,13 +682,19 @@ def clean_str(s, maxlen=None):
         s = s[:maxlen]
     return s
 
+# International-order content hidden 2026-06-30 (Jamie): skip IO-mention-only rows and drop the
+# "IO mention" tag, so the explorer shows only confrontational records. To re-enable, set False
+# (and restore the #trends section, its nav link, the hero card and the IO filter option in index.html).
+HIDE_IO = True
 articles = []
 for _, row in explorer_df.iterrows():
     tags = build_tags(row)
+    if HIDE_IO and not tags:
+        continue                       # IO-mention-only row → hidden
     is_io = bool(
         "international order" in str(row.get("answer", "")).lower()
     )
-    if is_io and "IO mention" not in tags:
+    if is_io and not HIDE_IO and "IO mention" not in tags:
         tags = ["IO mention"] + tags
 
     # date string
@@ -813,6 +819,25 @@ for mo in range(1, 13):
 with open(os.path.join(OUT_DIR, "threats_by_month.json"), "w") as f:
     json.dump(threats_by_month, f)
 print(f"  wrote threats_by_month.json (12 months)")
+
+# ── F3: Threats by actual year-month (continuous, 0-filled — for the rolling 3-monthly view) ──
+print("Building threats_by_yearmonth …")
+df["_ymp"] = pd.to_datetime(df["date"], errors="coerce").dt.to_period("M")
+_valid = df["_ymp"].dropna()
+threats_by_yearmonth = []
+if len(_valid):
+    for p in pd.period_range(_valid.min(), _valid.max(), freq="M"):
+        rows = df[df["_ymp"] == p]
+        cm = rows[ALL_CONF_COLS].notna().any(axis=1) if len(rows) else None
+        entry = {"ym": str(p), "year": int(p.year),
+                 "total": int(cm.sum()) if cm is not None else 0,
+                 "corpus_total": int(len(rows))}
+        for col in ALL_CONF_COLS:
+            entry[col] = int(rows[col].notna().sum()) if (col in rows.columns and len(rows)) else 0
+        threats_by_yearmonth.append(entry)
+with open(os.path.join(OUT_DIR, "threats_by_yearmonth.json"), "w") as f:
+    json.dump(threats_by_yearmonth, f)
+print(f"  wrote threats_by_yearmonth.json ({len(threats_by_yearmonth)} months)")
 
 # ── G: Threats by country ──────────────────────────────────────────────────────
 print("Building threats_by_country …")
@@ -1088,6 +1113,20 @@ sm["_mo"] = sm["_dt"].dt.month
 sm_month = [dict(month=int(m), **rec) for m, rec in sorted(_sm_bucket("_mo").items())]
 with open(os.path.join(OUT_DIR, "sm_threats_by_month.json"), "w") as fh:
     json.dump(sm_month, fh)
+# by actual year-month (continuous, 0-filled — for the rolling 3-monthly view)
+sm_yearmonth = []
+if len(sm):
+    sm["_ymp"] = sm["_dt"].dt.to_period("M")
+    for p in pd.period_range(sm["_ymp"].min(), sm["_ymp"].max(), freq="M"):
+        g = sm[sm["_ymp"] == p]
+        entry = {"ym": str(p), "year": int(p.year),
+                 "total": int(g["_conf"].sum()) if len(g) else 0, "corpus_total": int(len(g))}
+        for c in sm_cats:
+            entry[c] = int(g[c].notna().sum()) if len(g) else 0
+        sm_yearmonth.append(entry)
+with open(os.path.join(OUT_DIR, "sm_threats_by_yearmonth.json"), "w") as fh:
+    json.dump(sm_yearmonth, fh)
+print(f"  wrote sm_threats_by_yearmonth.json ({len(sm_yearmonth)} months)")
 # by target country (confrontational pieces only) → ISO3 via the MFA CONF_ISO_MAP
 sm_country = {}
 for _, r in sm[sm["_conf"]].iterrows():
