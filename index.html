@@ -408,7 +408,7 @@
     <div class="section-label">Research project · Ongoing</div>
     <h1>China's Diplomatic and<br>Confrontational Language</h1>
     <span class="zh">中华人民共和国外交</span>
-    <p class="subtitle">How does China talk about the world at press conferences? This site tracks language from the Ministry of Foreign Affairs (2002–2026).</p>
+    <p class="subtitle">How does China talk about the world? This site tracks the Ministry of Foreign Affairs' press conferences and the Ministry's use of confrontational language towards other countries (2002–2026).</p>
     <nav>
       <a href="#map-section">Map 地图</a>
       <a href="#threats">Assertiveness 强硬外交</a>
@@ -493,6 +493,7 @@
     </h2>
     <p style="font-size:0.9rem;color:#555;margin-bottom:0.8rem;">This section measures confrontational language in the spokesperson's <em>own</em> answers — instances where China itself issues a threat, makes a demand, urges or requests action of another party, or lodges a formal diplomatic representation. These are markers of China's diplomatic assertiveness, not of pressure on China. Use the tabs to switch between yearly <strong>counts</strong>, each code's <strong>share</strong>, confrontational exchanges <strong>vs the whole corpus</strong>, and seasonality <strong>by calendar month</strong>. (A separate category, attacks on Chinese nationals abroad, is shown only on the map further down.)</p>
     <p id="threats-mode-note" style="font-size:0.82rem;color:#888;font-family:sans-serif;margin-bottom:1rem;">Note: a single exchange can be coded for multiple categories, so bar segments sum to <em>more</em> than the number of distinct exchanges. The dashed line shows the actual exchange count. 注意：单条问答可编入多个类别，因此各类别之和可能超过实际问答条数；虚线表示实际条数。</p>
+    <p id="threats-sm-note" style="display:none;font-size:0.82rem;color:#8a1f12;font-family:sans-serif;margin:-0.5rem 0 1rem;"><strong>State media shown from 2019.</strong> The scraped commentary corpus is only a handful of pieces a year before then (the English 钟声 begins 2016, China Daily editorials only 2022), too few for meaningful yearly shares — from 2019 it runs to 100+ pieces a year.</p>
 
     <div class="src-toggle" id="threats-src-toggle" role="tablist" aria-label="Data source">
       <button class="active" data-src="mfa">MFA press conference</button>
@@ -559,7 +560,7 @@
       <div class="sn-body">
         <p><span class="big">MFA press conference</span> — confrontational acts in the spokesperson's spoken answers, by year (2003–2026). "Vs whole corpus" compares the confrontational subset to all ~35,000 exchanges.</p>
         <p><span class="big">MFA — domestic questions</span> — the same MFA answers, but only the exchanges whose <em>question</em> came from a domestic Chinese outlet (mainland state and non-state media — CCTV, Xinhua, Global Times, People's Daily, China Daily, The Paper and the like; Chinese-language Hong Kong outlets such as Phoenix TV are included). It is the same coding of China's own <em>answers</em>, isolated to the friendly, often teed-up questioners. The questioner is only recorded from <strong>2020</strong>, so this series begins there; the confrontation rate runs a little above the full record (7.4% vs 5.7%).</p>
-        <p><span class="big">State media commentary</span> — the same acts in combined People's Daily commentary columns (钟声, 和音, 国际论坛, 望海楼, 国纪平, plus the English-edition 钟声) and China Daily editorials — 706 confrontational pieces, 2007–2026, coded by the validated Sonnet coder (κ ≈ 0.61). The mild "request" tier is excluded (matching the commentary analysis), so it shows five acts.</p>
+        <p><span class="big">State media commentary</span> — the same acts in combined People's Daily commentary columns (钟声, 和音, 国际论坛, 望海楼, 国纪平, plus the English-edition 钟声) and China Daily editorials — 706 confrontational pieces, 2007–2026 (<strong>charted from 2019</strong>, when the corpus becomes substantial — before then it is only a handful of pieces a year), coded by the validated Sonnet coder (κ ≈ 0.61). The mild "request" tier is excluded (matching the commentary analysis), so it shows five acts.</p>
         <p><span class="big">What "whole corpus" means here.</span> For state media it is <em>not</em> the whole newspaper. It is the <strong>5,082 opinion pieces</strong> we scraped from these specific slots — the People's Daily's dedicated foreign-affairs commentary columns (望海楼, 和音, 国际论坛, 钟声, 国纪平; the English-edition 钟声) and <em>all</em> China Daily editorials — so "vs whole corpus" is the confrontational share of <em>those commentary pieces</em> that year, not of everything the papers published. (For the MFA it is every press-conference Q&amp;A exchange.)</p>
         <p>Levels are <span class="big">not unit-comparable</span> (spoken Q&amp;A vs whole articles) and the state-media series is far smaller — read each on its own scale; the comparable signals are the <em>shares</em>, the <em>mix</em> of acts, and the <em>timing</em>.</p>
       </div>
@@ -1653,13 +1654,16 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly, mfaYM, s
 
   function switchSource(src) {
     source = src;
-    if (src === 'sm') { threats = (smThreats || []).filter(d => (d.total + d.corpus_total) > 0); monthly = smMonthly || []; ym = smYM || []; series = SERIES_SM; unit = 'pieces'; }
+    if (src === 'sm') { threats = (smThreats || []).filter(d => d.year >= 2019 && (d.total + d.corpus_total) > 0); monthly = smMonthly || []; ym = (smYM || []).filter(d => d.year >= 2019); series = SERIES_SM; unit = 'pieces'; }
     else if (src === 'mfa_dom') { threats = (mfaDomThreats || []).filter(d => d.corpus_total > 0); monthly = mfaDomMonthly || []; ym = mfaDomYM || []; series = SERIES_MFA; unit = 'exchanges'; }
     else { threats = (mfaThreats || []).filter(d => d.year >= 2003); monthly = mfaMonthly || []; ym = (mfaYM || []).filter(d => d.year >= 2003); series = SERIES_MFA; unit = 'exchanges'; }
     soloIdx = null;
     // Request has no state-media series — hide its category toggle when showing state media
     const reqBtn = document.querySelector('#threats-toggles .ttog-btn[data-series="4"]');
     if (reqBtn) reqBtn.style.display = (src === 'sm') ? 'none' : '';
+    // State-media corpus is only substantial from 2019 — show the caveat for that source
+    const smNote = document.getElementById('threats-sm-note');
+    if (smNote) smNote.style.display = (src === 'sm') ? 'block' : 'none';
     document.querySelectorAll('#threats-src-toggle button').forEach(b => b.classList.toggle('active', b.dataset.src === src));
     switchMode(viewMode);
   }
@@ -2224,7 +2228,9 @@ function initCommentaryCompare(data) {
   }
 
   function buildTime() {
-    const years = [...new Set(sources.flatMap(s => s.by_year.map(y => y.year)))].sort((a, b) => a - b);
+    // State-media commentary corpus is only substantial from 2019 (English 钟声 from 2016, China
+    // Daily editorials only 2022); earlier years are a handful of pieces, so start the series in 2019.
+    const years = [...new Set(sources.flatMap(s => s.by_year.map(y => y.year)))].filter(y => y >= 2019).sort((a, b) => a - b);
     const labels = years.map(String);
     return {
       type: 'line',
@@ -2295,7 +2301,7 @@ function initCommentaryCompare(data) {
   const NOTES = {
     mix: 'Share of each source’s pieces that carry each confrontation code. A single piece can carry several codes, so bars need not sum to 100%. Same six-category codebook applied to spoken Q&A and to written commentary.',
     severity: 'Severity-weighted intensity, which the binary “confrontational” flag can’t see. Each piece scores the weight of its STRONGEST act (Active threat 5 · Threat 4 · Demand 3 · Representation 2 · Urge 1 · Request 0.5), averaged over every piece (non-confrontational = 0). It separates a source that mostly urges (China Daily) from one that mostly demands (钟声). Weights are an ordinal scale, not tuned to results.',
-    time: `Share of each source’s pieces per year that are confrontational (carry any code). Commentary years with fewer than ${MINN} pieces are omitted as too thin to plot. Shares, not counts; descriptive.`,
+    time: `Share of each source’s pieces per year that are confrontational (carry any code). Starts in 2019: the scraped commentary corpus is only a handful of pieces a year before then (English 钟声 from 2016, China Daily editorials only 2022), too few for meaningful shares. Years with fewer than ${MINN} pieces are also omitted. Shares, not counts; descriptive.`,
   };
 
   function render(mode) {
