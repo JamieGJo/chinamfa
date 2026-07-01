@@ -839,6 +839,58 @@ with open(os.path.join(OUT_DIR, "threats_by_yearmonth.json"), "w") as f:
     json.dump(threats_by_yearmonth, f)
 print(f"  wrote threats_by_yearmonth.json ({len(threats_by_yearmonth)} months)")
 
+# ── F4: MFA DOMESTIC-QUESTION subset (question asked by a domestic Chinese outlet) ──
+# Same confrontation series as the full MFA record, but restricted to exchanges whose QUESTION
+# came from a Chinese outlet (press_cat = Chinese state or non-state media — CCTV, Xinhua, Global
+# Times, People's Daily, China Daily, The Paper, etc.). China's own confrontational ANSWERS are
+# still what's coded; this isolates the answers given to domestic (often teed-up) questioners.
+# NOTE: who_asked is only populated from 2020, so these series necessarily begin in 2020.
+# Powers the "MFA — domestic questions" source toggle on the Confrontation-over-time chart.
+print("Building MFA domestic-question feeds …")
+DOMESTIC_PRESS = {"Chinese state media", "Chinese non-state media"}
+dom = df[df["press_cat"].isin(DOMESTIC_PRESS)].copy()
+print(f"  {len(dom):,} domestic-question exchanges ({len(dom)/len(df)*100:.1f}% of corpus; from {int(dom['year_clean'].dropna().min())})")
+
+dom_year = []
+for yr in sorted(dom["year_clean"].dropna().unique()):
+    rows = dom[dom["year_clean"] == yr]
+    cm = rows[ALL_CONF_COLS].notna().any(axis=1)
+    entry = {"year": int(yr), "total": int(cm.sum()), "corpus_total": int(len(rows))}
+    for col in ALL_CONF_COLS:
+        entry[col] = int(rows[col].notna().sum()) if col in rows.columns else 0
+    dom_year.append(entry)
+with open(os.path.join(OUT_DIR, "threats_by_year_domestic.json"), "w") as f:
+    json.dump(dom_year, f)
+
+dom["_month"] = pd.to_datetime(dom["date"], errors="coerce").dt.month
+dom_month = []
+for mo in range(1, 13):
+    rows = dom[dom["_month"] == mo]
+    cm = rows[ALL_CONF_COLS].notna().any(axis=1)
+    entry = {"month": mo, "total": int(cm.sum()), "corpus_total": int(len(rows))}
+    for col in ALL_CONF_COLS:
+        entry[col] = int(rows[col].notna().sum()) if col in rows.columns else 0
+    dom_month.append(entry)
+with open(os.path.join(OUT_DIR, "threats_by_month_domestic.json"), "w") as f:
+    json.dump(dom_month, f)
+
+dom["_ymp"] = pd.to_datetime(dom["date"], errors="coerce").dt.to_period("M")
+_dv = dom["_ymp"].dropna()
+dom_ym = []
+if len(_dv):
+    for p in pd.period_range(_dv.min(), _dv.max(), freq="M"):
+        rows = dom[dom["_ymp"] == p]
+        cm = rows[ALL_CONF_COLS].notna().any(axis=1) if len(rows) else None
+        entry = {"ym": str(p), "year": int(p.year),
+                 "total": int(cm.sum()) if cm is not None else 0,
+                 "corpus_total": int(len(rows))}
+        for col in ALL_CONF_COLS:
+            entry[col] = int(rows[col].notna().sum()) if (col in rows.columns and len(rows)) else 0
+        dom_ym.append(entry)
+with open(os.path.join(OUT_DIR, "threats_by_yearmonth_domestic.json"), "w") as f:
+    json.dump(dom_ym, f)
+print(f"  wrote threats_by_year_domestic ({len(dom_year)} yrs) / _month / _yearmonth ({len(dom_ym)} mo)")
+
 # ── G: Threats by country ──────────────────────────────────────────────────────
 print("Building threats_by_country …")
 
@@ -1141,5 +1193,109 @@ for _, r in sm[sm["_conf"]].iterrows():
 with open(os.path.join(OUT_DIR, "sm_threats_by_country.json"), "w") as fh:
     json.dump(sm_country, fh)
 print(f"  wrote sm_threats_by_year ({len(sm_year)} yrs) / by_month / by_country ({len(sm_country)} countries)")
+
+# ── I: Recent daily deep-dive feed (last ~5 weeks, MFA + PD + CD) ───────────────
+# Powers the "Last month" tab on the Confrontation-over-time chart: one bar per day,
+# per outlet, coloured by the strongest confrontational act. MFA shows EVERY Q&A in the
+# window (confrontational categories + an "Other Q&A" residual for non-confrontational
+# exchanges); the commentary outlets (People's Daily — 钟声 flagged; China Daily) show the
+# pieces flagged confrontational. Rolling window, regenerated weekly by the pipeline.
+print("Building recent_daily (last-month deep-dive) …")
+RECENT_DAYS = 34
+SEV_ORDER = ["Active threat", "Threat", "Demand", "Representations", "Urge", "Request"]  # strongest→weakest
+MFA_LM_CATS = ["Active threat", "Threat", "Demand", "Urge", "Request", "Representations"]  # display/stack order
+SM_LM_CATS  = ["Active threat", "Threat", "Demand", "Urge", "Representations"]             # Request excluded
+
+def _excl_cat(row, cats):
+    for c in SEV_ORDER:
+        if c in cats and pd.notna(row.get(c)):
+            return c
+    return None
+
+def _clip(v, n):
+    s = "" if v is None else str(v).strip()
+    if s in ("-", "nan"):
+        s = ""
+    return s[:n]
+
+# Common rolling window = last RECENT_DAYS ending at the latest date across all sources
+_lm_masters = {}
+_lm_dates = [df["_date_p"].max()]
+for _k, _rel in [("pd_zh", "pd_zh/pd_commentary_master.csv"),
+                 ("pd_en", "pd_en/pd_en_commentary_master.csv"),
+                 ("cd",    "cd/cd_commentary_master.csv")]:
+    _p = os.path.join(COMMENTARY_DIR, _rel)
+    if os.path.exists(_p):
+        _cm = pd.read_csv(_p, low_memory=False)
+        _cm["_dt"] = pd.to_datetime(_cm["date"], errors="coerce")
+        _lm_masters[_k] = _cm[_cm["_dt"].notna()]
+        _lm_dates.append(_lm_masters[_k]["_dt"].max())
+_lm_latest = max(d for d in _lm_dates if pd.notna(d))
+_lm_cut = _lm_latest - pd.Timedelta(days=RECENT_DAYS)
+_lm_latest_s, _lm_cut_s = _lm_latest.strftime("%Y-%m-%d"), _lm_cut.strftime("%Y-%m-%d")
+
+# MFA — every Q&A in the window (confrontational categorised, else "Other Q&A")
+_mw = df[(df["_date_p"] >= _lm_cut) & (df["_date_p"] <= _lm_latest)].copy()
+mfa_lm_items = []
+for _, r in _mw.sort_values("_date_p").iterrows():
+    cat = _excl_cat(r, MFA_LM_CATS)
+    mfa_lm_items.append({
+        "date": r["_date_p"].strftime("%Y-%m-%d"),
+        "cat":  cat or "Other Q&A",
+        "codes": [c for c in MFA_LM_CATS if pd.notna(r.get(c))],
+        "sp":   _clip(r.get("spokesperson", ""), 40),
+        "who":  _clip(r.get("who_asked", ""), 60),
+        "loc":  _clip(r.get("q_loc", ""), 60),
+        "q":    _clip(r.get("question", ""), 280),
+        "a":    _clip(r.get("answer", ""), 540),
+        "link": _clip(r.get("link", ""), 200),
+    })
+
+def _commentary_lm_items(keys):
+    out = []
+    for key in keys:
+        cm = _lm_masters.get(key)
+        if cm is None:
+            continue
+        present = [c for c in SM_LM_CATS if c in cm.columns]
+        w = cm[(cm["_dt"] >= _lm_cut) & (cm["_dt"] <= _lm_latest)]
+        for _, r in w.iterrows():                                # EVERY piece in the window (not just confrontational)
+            col = _clip(r.get("column", ""), 40)
+            cat = _excl_cat(r, present)
+            out.append({
+                "date": r["_dt"].strftime("%Y-%m-%d"),
+                "cat":  cat or "Other commentary",              # non-confrontational → grey residual
+                "codes": [c for c in present if pd.notna(r.get(c))],
+                "src":  key,
+                "column": col,
+                "zs":   ("钟声" in col) or (key == "pd_en"),   # flagship column (English pd_en is the translated 钟声)
+                "title": _clip(r.get("title", ""), 200),
+                "country": _clip(r.get("subject_country", ""), 60),
+                "zh":   key == "pd_zh",                          # Chinese → render a Google-Translate link
+                "url":  _clip(r.get("url", ""), 200),
+            })
+    out.sort(key=lambda x: x["date"])
+    return out
+
+recent_daily = {
+    "latest": _lm_latest_s,
+    "cutoff": _lm_cut_s,
+    "outlets": [
+        {"key": "mfa", "label": "MFA press briefings", "unit": "Q&A exchanges",
+         "residual": True, "cats": MFA_LM_CATS + ["Other Q&A"], "items": mfa_lm_items},
+        {"key": "pd",  "label": "People's Daily commentary", "unit": "commentary pieces",
+         "residual": True, "highlight": "钟声", "cats": SM_LM_CATS + ["Other commentary"],
+         "items": _commentary_lm_items(["pd_zh", "pd_en"])},
+        {"key": "cd",  "label": "China Daily editorials", "unit": "editorials",
+         "residual": True, "cats": SM_LM_CATS + ["Other commentary"],
+         "items": _commentary_lm_items(["cd"])},
+    ],
+}
+with open(os.path.join(OUT_DIR, "recent_daily.json"), "w") as fh:
+    json.dump(recent_daily, fh, ensure_ascii=False)
+print(f"  wrote recent_daily.json (window {_lm_cut_s} … {_lm_latest_s}; "
+      f"MFA {len(mfa_lm_items)} exchanges, "
+      f"PD {len(recent_daily['outlets'][1]['items'])} pieces, "
+      f"CD {len(recent_daily['outlets'][2]['items'])} pieces)")
 
 print("\nDone.")
