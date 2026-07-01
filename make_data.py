@@ -1236,10 +1236,10 @@ _lm_latest_s, _lm_cut_s = _lm_latest.strftime("%Y-%m-%d"), _lm_cut.strftime("%Y-
 
 # MFA — every Q&A in the window (confrontational categorised, else "Other Q&A")
 _mw = df[(df["_date_p"] >= _lm_cut) & (df["_date_p"] <= _lm_latest)].copy()
-mfa_lm_items = []
-for _, r in _mw.sort_values("_date_p").iterrows():
+
+def _mfa_lm_item(r):
     cat = _excl_cat(r, MFA_LM_CATS)
-    mfa_lm_items.append({
+    return {
         "date": r["_date_p"].strftime("%Y-%m-%d"),
         "cat":  cat or "Other Q&A",
         "codes": [c for c in MFA_LM_CATS if pd.notna(r.get(c))],
@@ -1249,7 +1249,12 @@ for _, r in _mw.sort_values("_date_p").iterrows():
         "q":    _clip(r.get("question", ""), 280),
         "a":    _clip(r.get("answer", ""), 540),
         "link": _clip(r.get("link", ""), 200),
-    })
+    }
+
+_mw_sorted = _mw.sort_values("_date_p")
+mfa_lm_items = [_mfa_lm_item(r) for _, r in _mw_sorted.iterrows()]
+# MFA — domestic-question subset (question from a domestic Chinese outlet; who_asked populated 2020+)
+mfa_dom_lm_items = [_mfa_lm_item(r) for _, r in _mw_sorted[_mw_sorted["press_cat"].isin(DOMESTIC_PRESS)].iterrows()]
 
 def _commentary_lm_items(keys):
     out = []
@@ -1280,22 +1285,23 @@ def _commentary_lm_items(keys):
 recent_daily = {
     "latest": _lm_latest_s,
     "cutoff": _lm_cut_s,
+    # keys match the Confrontation-over-time source toggle (mfa / mfa_dom / sm) so the same
+    # selector drives every tab, including "Last month". State media = PD (Chinese + English) + CD.
     "outlets": [
-        {"key": "mfa", "label": "MFA press briefings", "unit": "Q&A exchanges",
+        {"key": "mfa", "label": "MFA press conference", "unit": "Q&A exchanges",
          "residual": True, "cats": MFA_LM_CATS + ["Other Q&A"], "items": mfa_lm_items},
-        {"key": "pd",  "label": "People's Daily commentary", "unit": "commentary pieces",
+        {"key": "mfa_dom", "label": "MFA — domestic questions", "unit": "Q&A exchanges",
+         "residual": True, "cats": MFA_LM_CATS + ["Other Q&A"], "items": mfa_dom_lm_items},
+        {"key": "sm",  "label": "State media commentary", "unit": "commentary pieces",
          "residual": True, "highlight": "钟声", "cats": SM_LM_CATS + ["Other commentary"],
-         "items": _commentary_lm_items(["pd_zh", "pd_en"])},
-        {"key": "cd",  "label": "China Daily editorials", "unit": "editorials",
-         "residual": True, "cats": SM_LM_CATS + ["Other commentary"],
-         "items": _commentary_lm_items(["cd"])},
+         "items": _commentary_lm_items(["pd_zh", "pd_en", "cd"])},
     ],
 }
 with open(os.path.join(OUT_DIR, "recent_daily.json"), "w") as fh:
     json.dump(recent_daily, fh, ensure_ascii=False)
 print(f"  wrote recent_daily.json (window {_lm_cut_s} … {_lm_latest_s}; "
       f"MFA {len(mfa_lm_items)} exchanges, "
-      f"PD {len(recent_daily['outlets'][1]['items'])} pieces, "
-      f"CD {len(recent_daily['outlets'][2]['items'])} pieces)")
+      f"MFA-domestic {len(mfa_dom_lm_items)}, "
+      f"state-media {len(recent_daily['outlets'][2]['items'])} pieces)")
 
 print("\nDone.")

@@ -267,7 +267,6 @@
     .src-toggle button:last-child { border-right: none; }
     .src-toggle button.active { background: #1a1a2e; color: #fff; font-weight: 600; }
     .src-toggle button:hover:not(.active) { background: #f3efe9; color: #333; }
-    .lm-outlets .lm-zs { font-family: 'Noto Serif SC','SimSun',serif; font-size: 0.9em; opacity: 0.8; margin-left: 3px; }
     /* "Last month" daily deep-dive — month band + click-through article dropdown */
     .monthband { display: none; font-family: sans-serif; font-size: 0.72rem; color: #7a736a; user-select: none; margin-top: 1px; }
     .monthband span { text-align: center; border-top: 1px solid #e3ded6; padding-top: 3px; min-width: 0; overflow: hidden; white-space: nowrap; }
@@ -506,12 +505,6 @@
       <button class="chart-tab" data-mode="lastmonth">Last month</button>
       <button class="chart-tab" data-mode="corpus">Vs whole corpus</button>
       <button class="chart-tab" data-mode="month">By month</button>
-    </div>
-
-    <div class="src-toggle lm-outlets" id="lastmonth-outlets" role="tablist" aria-label="Outlet" style="display:none;">
-      <button class="active" data-outlet="mfa">MFA briefings</button>
-      <button data-outlet="pd">People's Daily<span class="lm-zs">钟声</span></button>
-      <button data-outlet="cd">China Daily</button>
     </div>
 
     <div class="threats-toggles" id="threats-toggles">
@@ -1284,8 +1277,7 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly, mfaYM, s
   const ctx = document.getElementById('threats-chart').getContext('2d');
   const MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  // ── "Last month" daily deep-dive state ──
-  let lmOutlet = 'mfa';
+  // ── "Last month" daily deep-dive — driven by the shared source toggle (mfa / mfa_dom / sm) ──
   const LM_COLORS = {
     'Active threat': '#6d1a36', 'Threat': '#c0291a', 'Demand': '#f4a261',
     'Urge': '#e9c46a', 'Request': '#a8c5da', 'Representations': '#457b9d',
@@ -1293,10 +1285,13 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly, mfaYM, s
   };
   const LM_SRC_LABEL = { pd_zh: "People's Daily", pd_en: "People's Daily (Eng)", cd: 'China Daily' };
   function lmNote(o) {
-    const click = ' <b>Click a coloured segment</b> to read that day’s ' + (o.key === 'mfa' ? 'exchanges' : 'pieces') + ' below. Rolling five-week window, refreshed weekly.';
+    const isMfa = o.key === 'mfa' || o.key === 'mfa_dom';
+    const click = ' <b>Click a coloured segment</b> to read that day’s ' + (isMfa ? 'exchanges' : 'pieces') + ' below. Rolling five-week window, refreshed weekly.';
     if (o.key === 'mfa')
       return 'A day-by-day close-up of the last five weeks of <b>MFA press briefings</b>. <b>Every</b> question-and-answer exchange is shown — one segment per exchange, stacked by day and coloured by the strongest confrontational act it carries; grey is a non-confrontational exchange (<em>Other Q&amp;A</em>).' + click;
-    return 'A day-by-day close-up of the last five weeks of <b>' + o.label + '</b>. <b>Every</b> piece is shown, coloured by its strongest confrontational act; grey is a non-confrontational piece (<em>Other commentary</em>). 钟声 (<em>Zhong Sheng</em>) pieces — People’s Daily’s flagship foreign-affairs column — are marked in the dropdown.' + click;
+    if (o.key === 'mfa_dom')
+      return 'A day-by-day close-up of MFA exchanges whose <b>question came from a domestic Chinese outlet</b>, over the last five weeks. Coloured by the strongest confrontational act; grey is non-confrontational (<em>Other Q&amp;A</em>).' + click;
+    return 'A day-by-day close-up of the last five weeks of <b>state-media commentary</b> (People’s Daily columns + China Daily editorials). <b>Every</b> piece is shown, coloured by its strongest confrontational act; grey is a non-confrontational piece (<em>Other commentary</em>). 钟声 (<em>Zhong Sheng</em>) pieces are marked in the dropdown.' + click;
   }
 
   const SERIES_MFA = [
@@ -1376,7 +1371,16 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly, mfaYM, s
       detail.innerHTML = '<div class="lm-empty">Recent daily data could not be loaded.</div>';
       return null;
     }
-    const outlet = recentDaily.outlets.find(o => o.key === lmOutlet) || recentDaily.outlets[0];
+    const outlet = recentDaily.outlets.find(o => o.key === source) || recentDaily.outlets[0];
+    const note = document.getElementById('threats-mode-note');
+    if (note) note.innerHTML = lmNote(outlet);
+    if (!outlet.items || !outlet.items.length) {
+      detail.innerHTML = '<div class="lm-empty">No day-by-day data for this source in the last five weeks.' +
+        (outlet.key === 'mfa_dom'
+          ? '<br>The questioner is only recorded through <b>early April 2026</b> — the current weekly scrape doesn’t capture who asked each question, so the domestic-question cut isn’t available for the most recent weeks. It is populated on the yearly / rolling / by-month tabs (2020 onward).'
+          : '') + '</div>';
+      return null;
+    }
     // day axis: cutoff … latest inclusive (UTC-safe so BST doesn't drop a day)
     const days = [];
     let d = new Date(recentDaily.cutoff + 'T00:00:00Z');
@@ -1417,9 +1421,7 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly, mfaYM, s
       }
     });
     buildLmBand(band, days);
-    const note = document.getElementById('threats-mode-note');
-    if (note) note.innerHTML = lmNote(outlet);
-    return c;
+    return c;   // note already set above (before the empty-state guard)
   }
 
   // proportional month band under the daily chart ("May 2026" / "Jun 2026"), aligned to the plot area
@@ -1453,7 +1455,7 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly, mfaYM, s
     const pretty = new Date(day + 'T00:00:00Z').toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC' });
     const unit = items.length === 1 ? outlet.unit.replace(/s$/, '') : outlet.unit;
     const head = `<div class="lm-detail-head"><span class="lm-chip" style="background:${LM_COLORS[cat] || '#999'}">${cat}</span><span><b>${items.length}</b> ${unit} · ${pretty}</span><button class="lm-close" aria-label="Close">×</button></div>`;
-    detail.innerHTML = head + items.map(outlet.key === 'mfa' ? lmCardMfa : lmCardCx).join('');
+    detail.innerHTML = head + items.map(outlet.key === 'sm' ? lmCardCx : lmCardMfa).join('');
     detail.querySelector('.lm-close').addEventListener('click', () => { detail.innerHTML = ''; });
   }
   function lmTags(codes) { return (codes || []).map(c => `<span class="tag ${tagClass(c)}">${c}</span>`).join(''); }
@@ -1636,10 +1638,8 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly, mfaYM, s
   function switchMode(mode) {
     viewMode = mode;
     const isLm = mode === 'lastmonth';
-    // Last-month has its own outlet toggle (MFA/PD/CD) and hides the MFA-vs-state-media source toggle
-    document.getElementById('threats-src-toggle').style.display = isLm ? 'none' : '';
-    document.getElementById('lastmonth-outlets').style.display = isLm ? 'inline-flex' : 'none';
-    // Category solo-toggles are meaningless in the corpus and last-month views
+    // The source toggle (MFA / MFA domestic / State media) drives every tab, including Last month.
+    // Category solo-toggles are meaningless in the corpus and last-month views.
     document.getElementById('threats-toggles').style.display = (isLm || mode === 'corpus') ? 'none' : 'flex';
     if (!isLm) {
       document.getElementById('lm-monthband').style.display = 'none';
@@ -1669,13 +1669,6 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly, mfaYM, s
   });
   document.querySelectorAll('#threats-src-toggle button').forEach(btn => {
     btn.addEventListener('click', () => switchSource(btn.dataset.src));
-  });
-  document.querySelectorAll('#lastmonth-outlets button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      lmOutlet = btn.dataset.outlet;
-      document.querySelectorAll('#lastmonth-outlets button').forEach(x => x.classList.toggle('active', x.dataset.outlet === lmOutlet));
-      if (viewMode === 'lastmonth') buildChart('lastmonth');
-    });
   });
 
   document.querySelectorAll('#threats-toggles .ttog-btn').forEach(btn => {
