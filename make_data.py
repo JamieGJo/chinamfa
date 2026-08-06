@@ -165,6 +165,80 @@ def text_country_mentions(text):
             hits.add(name)
     return hits
 
+# ISO3 lookup + row-level country attribution — hoisted up here (was previously
+# defined just before threats_by_country, §G) so it's available to the
+# spokesperson-cards section (§B) too, for the "which countries do they talk
+# about" bio field. Single definition, used by both sections.
+CONF_ISO_MAP = {
+    # Abbreviations / aliases used in NLP-extracted q_loc
+    'US':'USA','U.S.':'USA','USA':'USA','United States':'USA','America':'USA',
+    'UK':'GBR','U.K.':'GBR','Britain':'GBR','United Kingdom':'GBR',
+    'DPRK':'PRK','North Korea':'PRK',
+    'ROK':'KOR','South Korea':'KOR',
+    'Philippine':'PHL','Philippines':'PHL',
+    'Japan':'JPN','Taiwan':'TWN','Russia':'RUS','Hong Kong':'HKG',
+    'India':'IND','Pakistan':'PAK','Xinjiang':'CHN','Tibet':'CHN','Macao':'MAC',
+    'Afghanistan':'AFG','Iran':'IRN','Ukraine':'UKR','Australia':'AUS',
+    'Germany':'DEU','France':'FRA','Indonesia':'IDN','Palestine':'PSE',
+    'Gaza':'PSE','Syria':'SYR','Iraq':'IRQ','Canada':'CAN',
+    'Israel':'ISR','Myanmar':'MMR','Burma':'MMR',
+    'Sri Lanka':'LKA','Vietnam':'VNM','Libya':'LBY','Sudan':'SDN',
+    'Egypt':'EGY','Saudi Arabia':'SAU','Turkey':'TUR','Türkiye':'TUR',
+    'Brazil':'BRA','South Africa':'ZAF','Cuba':'CUB','Venezuela':'VEN',
+    'Nepal':'NPL','Cambodia':'KHM','Singapore':'SGP','Thailand':'THA',
+    'Malaysia':'MYS','Kazakhstan':'KAZ','Italy':'ITA','Spain':'ESP',
+    'Nigeria':'NGA','Kenya':'KEN','Ethiopia':'ETH','Zimbabwe':'ZWE',
+    'Angola':'AGO','DR Congo':'COD','Serbia':'SRB','Panama':'PAN',
+    'Bangladesh':'BGD','Mongolia':'MNG','Laos':'LAO','Uzbekistan':'UZB',
+    'Hungary':'HUN','Solomon Islands':'SLB','Fiji':'FJI','Tonga':'TON',
+    'Vanuatu':'VUT','Papua New Guinea':'PNG','Maldives':'MDV','Bhutan':'BTN',
+    'UAE':'ARE','Qatar':'QAT','Kuwait':'KWT','Jordan':'JOR','Lebanon':'LBN',
+    'Yemen':'YEM','Morocco':'MAR','Tunisia':'TUN','Algeria':'DZA',
+    'Belarus':'BLR','Azerbaijan':'AZE','Armenia':'ARM','Lithuania':'LTU',
+    'Poland':'POL','Czech Republic':'CZE','Sweden':'SWE','Finland':'FIN',
+    'Norway':'NOR','Denmark':'DNK','Netherlands':'NLD','Belgium':'BEL',
+    'Portugal':'PRT','Greece':'GRC','Austria':'AUT','Switzerland':'CHE',
+    'Ireland':'IRL','Croatia':'HRV','Seychelles':'SYC','Albania':'ALB',
+    'Niger':'NER','Kosovo':'XKX',
+}
+# Display name per ISO3 (curated for the handful that actually appear in
+# spokesperson top-3s; falls back to the ISO3 code itself if not listed).
+ISO3_DISPLAY = {
+    'USA':'United States','GBR':'United Kingdom','PRK':'North Korea','KOR':'South Korea',
+    'PHL':'Philippines','JPN':'Japan','TWN':'Taiwan','RUS':'Russia','HKG':'Hong Kong',
+    'IND':'India','PAK':'Pakistan','CHN':'China (Xinjiang/Tibet)','MAC':'Macao',
+    'AFG':'Afghanistan','IRN':'Iran','UKR':'Ukraine','AUS':'Australia','DEU':'Germany',
+    'FRA':'France','IDN':'Indonesia','PSE':'Palestine','SYR':'Syria','IRQ':'Iraq',
+    'CAN':'Canada','ISR':'Israel','MMR':'Myanmar','LKA':'Sri Lanka','VNM':'Vietnam',
+    'LBY':'Libya','SDN':'Sudan','EGY':'Egypt','SAU':'Saudi Arabia','TUR':'Turkey',
+    'BRA':'Brazil','ZAF':'South Africa','CUB':'Cuba','VEN':'Venezuela','NPL':'Nepal',
+    'KHM':'Cambodia','SGP':'Singapore','THA':'Thailand','MYS':'Malaysia','KAZ':'Kazakhstan',
+    'ITA':'Italy','ESP':'Spain','NGA':'Nigeria','KEN':'Kenya','ETH':'Ethiopia',
+    'ZWE':'Zimbabwe','AGO':'Angola','COD':'DR Congo','SRB':'Serbia','PAN':'Panama',
+    'BGD':'Bangladesh','MNG':'Mongolia','LAO':'Laos','UZB':'Uzbekistan','HUN':'Hungary',
+    'SLB':'Solomon Islands','FJI':'Fiji','TON':'Tonga','VUT':'Vanuatu','PNG':'Papua New Guinea',
+    'MDV':'Maldives','BTN':'Bhutan','ARE':'UAE','QAT':'Qatar','KWT':'Kuwait','JOR':'Jordan',
+    'LBN':'Lebanon','YEM':'Yemen','MAR':'Morocco','TUN':'Tunisia','DZA':'Algeria',
+    'BLR':'Belarus','AZE':'Azerbaijan','ARM':'Armenia','LTU':'Lithuania','POL':'Poland',
+    'CZE':'Czech Republic','SWE':'Sweden','FIN':'Finland','NOR':'Norway','DNK':'Denmark',
+    'NLD':'Netherlands','BEL':'Belgium','PRT':'Portugal','GRC':'Greece','AUT':'Austria',
+    'CHE':'Switzerland','IRL':'Ireland','HRV':'Croatia','SYC':'Seychelles','ALB':'Albania',
+    'NER':'Niger','XKX':'Kosovo',
+}
+
+def row_iso_locs(row):
+    """Target country/countries for one exchange, as ISO3 codes. Uses q_loc
+    (NLP-extracted, 2002–2023) where present; falls back to keyword text-match
+    on question+answer (2024–2026, where q_loc is never populated) — same
+    fallback used for country_counts.json's 2024+ rows and the confrontation map."""
+    q_raw = str(row.get("q_loc", ""))
+    if q_raw not in ("nan", ""):
+        return [CONF_ISO_MAP[l] for l in
+                (x.strip() for x in q_raw.split(";"))
+                if l not in ("-", "nan", "") and l in CONF_ISO_MAP]
+    text = str(row.get("question", "")) + " " + str(row.get("answer", ""))
+    return [CONF_ISO_MAP[name] for name in text_country_mentions(text) if name in CONF_ISO_MAP]
+
 # Split corpus: original NLP-extracted vs scraped (text-based)
 orig_rows = df[df["source"] == "CMFA_v4"].copy()
 scraped_rows = df[df["source"] == "scraped_2024_2026"].copy()
@@ -309,6 +383,41 @@ for sp in TOP_SP:
 with open(os.path.join(OUT_DIR, "spokesperson_by_year.json"), "w") as f:
     json.dump(sp_by_year, f)
 print(f"  wrote spokesperson_by_year.json ({len(years)} years, {len(TOP_SP)} spokespeople)")
+
+# ── A2: Spokesperson confrontation rate by year (line-chart tab) ───────────────
+# Powers a second tab on "Who speaks for China?": each spokesperson's
+# confrontation rate per year they were active. Rate is null (not 0) for years
+# they weren't speaking, so the line chart doesn't draw through gap years
+# (spanGaps:false client-side) — distinct from a 0% rate, which is a real value.
+print("Building spokesperson_confrate_by_year …")
+_conf_cols_for_rate = ["Threat", "Demand", "Urge", "Request", "Representations",
+                       "Active threat", "China attacked"]
+_conf_any = df[_conf_cols_for_rate].notna().any(axis=1)
+sp_yr_rate = (
+    df[df["spokesperson"].isin(TOP_SP)]
+    .assign(_conf=_conf_any[df["spokesperson"].isin(TOP_SP)])
+    .groupby(["year_clean", "spokesperson"])
+    .agg(n=("_conf", "size"), n_conf=("_conf", "sum"))
+    .reset_index()
+)
+sp_confrate_by_year = {"years": [int(y) for y in years], "series": []}
+for sp in TOP_SP:
+    sub = sp_yr_rate[sp_yr_rate["spokesperson"] == sp].set_index("year_clean")
+    rates, ns = [], []
+    for y in years:
+        if y in sub.index:
+            n = int(sub.loc[y, "n"]); nc = int(sub.loc[y, "n_conf"])
+            rates.append(round(nc / n * 100, 1) if n else None)
+            ns.append(n)
+        else:
+            rates.append(None)
+            ns.append(0)
+    sp_confrate_by_year["series"].append({
+        "name": sp, "color": SP_COLOR.get(sp, "#999"), "rate": rates, "n": ns,
+    })
+with open(os.path.join(OUT_DIR, "spokesperson_confrate_by_year.json"), "w") as f:
+    json.dump(sp_confrate_by_year, f)
+print(f"  wrote spokesperson_confrate_by_year.json ({len(years)} years, {len(TOP_SP)} spokespeople)")
 
 # ── B: Spokesperson cards ─────────────────────────────────────────────────────
 print("Building spokesperson_cards …")
@@ -472,6 +581,23 @@ for sp in TOP_SP:
         else:
             breakdown[ct] = 0
 
+    # Top-3 countries this spokesperson's answers are mainly about, as a % of
+    # their own country-tagged exchanges (q_loc 2002–2023, text-match fallback
+    # 2024–2026 — same attribution as the confrontation map, §row_iso_locs).
+    _iso_counts = {}
+    for _, r in rows.iterrows():
+        for iso in set(row_iso_locs(r)):
+            _iso_counts[iso] = _iso_counts.get(iso, 0) + 1
+    _iso_total = sum(_iso_counts.values())
+    top_countries = []
+    if _iso_total:
+        for iso, n in sorted(_iso_counts.items(), key=lambda kv: kv[1], reverse=True)[:3]:
+            top_countries.append({
+                "name": ISO3_DISPLAY.get(iso, iso),
+                "pct": round(n / _iso_total * 100, 1),
+                "n": int(n),
+            })
+
     card = {
         "name": sp,
         "color": SP_COLOR.get(sp, "#999"),
@@ -485,6 +611,7 @@ for sp in TOP_SP:
         "post": bio.get("post", ""),
         "note": bio.get("note", ""),
         "conf_breakdown": breakdown,
+        "top_countries": top_countries,
     }
     card.update(build_cdbd_fields(sp))
     cards.append(card)
@@ -893,55 +1020,11 @@ print(f"  wrote threats_by_year_domestic ({len(dom_year)} yrs) / _month / _yearm
 
 # ── G: Threats by country ──────────────────────────────────────────────────────
 print("Building threats_by_country …")
-
-CONF_ISO_MAP = {
-    # Abbreviations / aliases used in NLP-extracted q_loc
-    'US':'USA','U.S.':'USA','USA':'USA','United States':'USA','America':'USA',
-    'UK':'GBR','U.K.':'GBR','Britain':'GBR','United Kingdom':'GBR',
-    'DPRK':'PRK','North Korea':'PRK',
-    'ROK':'KOR','South Korea':'KOR',
-    'Philippine':'PHL','Philippines':'PHL',
-    'Japan':'JPN','Taiwan':'TWN','Russia':'RUS','Hong Kong':'HKG',
-    'India':'IND','Pakistan':'PAK','Xinjiang':'CHN','Tibet':'CHN','Macao':'MAC',
-    'Afghanistan':'AFG','Iran':'IRN','Ukraine':'UKR','Australia':'AUS',
-    'Germany':'DEU','France':'FRA','Indonesia':'IDN','Palestine':'PSE',
-    'Gaza':'PSE','Syria':'SYR','Iraq':'IRQ','Canada':'CAN',
-    'Israel':'ISR','Myanmar':'MMR','Burma':'MMR',
-    'Sri Lanka':'LKA','Vietnam':'VNM','Libya':'LBY','Sudan':'SDN',
-    'Egypt':'EGY','Saudi Arabia':'SAU','Turkey':'TUR','Türkiye':'TUR',
-    'Brazil':'BRA','South Africa':'ZAF','Cuba':'CUB','Venezuela':'VEN',
-    'Nepal':'NPL','Cambodia':'KHM','Singapore':'SGP','Thailand':'THA',
-    'Malaysia':'MYS','Kazakhstan':'KAZ','Italy':'ITA','Spain':'ESP',
-    'Nigeria':'NGA','Kenya':'KEN','Ethiopia':'ETH','Zimbabwe':'ZWE',
-    'Angola':'AGO','DR Congo':'COD','Serbia':'SRB','Panama':'PAN',
-    'Bangladesh':'BGD','Mongolia':'MNG','Laos':'LAO','Uzbekistan':'UZB',
-    'Hungary':'HUN','Solomon Islands':'SLB','Fiji':'FJI','Tonga':'TON',
-    'Vanuatu':'VUT','Papua New Guinea':'PNG','Maldives':'MDV','Bhutan':'BTN',
-    'UAE':'ARE','Qatar':'QAT','Kuwait':'KWT','Jordan':'JOR','Lebanon':'LBN',
-    'Yemen':'YEM','Morocco':'MAR','Tunisia':'TUN','Algeria':'DZA',
-    'Belarus':'BLR','Azerbaijan':'AZE','Armenia':'ARM','Lithuania':'LTU',
-    'Poland':'POL','Czech Republic':'CZE','Sweden':'SWE','Finland':'FIN',
-    'Norway':'NOR','Denmark':'DNK','Netherlands':'NLD','Belgium':'BEL',
-    'Portugal':'PRT','Greece':'GRC','Austria':'AUT','Switzerland':'CHE',
-    'Ireland':'IRL','Croatia':'HRV','Seychelles':'SYC','Albania':'ALB',
-    'Niger':'NER','Kosovo':'XKX',
-}
-
-# q_loc (NLP entity extraction) is only populated for the original CMFA_v4 corpus
-# (2002–2023) — it is 0% populated on scraped_2024_2026 rows, so without a fallback
-# this map (and its year-sliced sibling) go silently empty from 2024 on. Fix: fall
-# back to the same keyword text-match used for country_counts.json's 2024+ rows
-# (text_country_mentions on question+answer), mapped through CONF_ISO_MAP. (Bug
-# found + fixed 2026-08-06 — the map had nothing after 2023.)
-def row_iso_locs(row):
-    q_raw = str(row.get("q_loc", ""))
-    if q_raw not in ("nan", ""):
-        return [CONF_ISO_MAP[l] for l in
-                (x.strip() for x in q_raw.split(";"))
-                if l not in ("-", "nan", "") and l in CONF_ISO_MAP]
-    # Fallback for rows with no q_loc (scraped 2024+): keyword match on Q+A text
-    text = str(row.get("question", "")) + " " + str(row.get("answer", ""))
-    return [CONF_ISO_MAP[name] for name in text_country_mentions(text) if name in CONF_ISO_MAP]
+# (CONF_ISO_MAP / row_iso_locs are now defined up near text_country_mentions,
+# §top of file — moved 2026-08-06 so the spokesperson-cards section can reuse
+# them too. q_loc fallback note: q_loc (NLP entity extraction) is only
+# populated for the original CMFA_v4 corpus (2002–2023) — 0% on scraped
+# 2024–2026 rows, so row_iso_locs falls back to keyword text-match there.)
 
 threats_by_country = {}
 conf_rows = df[df[ALL_CONF_COLS].notna().any(axis=1)]

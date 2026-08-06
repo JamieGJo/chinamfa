@@ -671,11 +671,20 @@
     <h2>Who speaks for China?
       <span class="zh">中国外交部发言人一览</span>
     </h2>
-    <p style="font-size:0.9rem;color:#555;">This chart shows each spokesperson's activity across the corpus; the cards below summarise key stats, including the share of their exchanges coded as confrontational.</p>
-
-    <div class="chart-wrap" style="height:320px;margin-bottom:1.5rem;">
-      <canvas id="sp-chart"></canvas>
+    <p style="font-size:0.9rem;color:#555;">
+      <span id="sp-tab-note-activity">This chart shows each spokesperson's activity across the corpus; the cards below summarise key stats, including the share of their exchanges coded as confrontational.</span>
+      <span id="sp-tab-note-confrate" style="display:none;">Each spokesperson's confrontation rate — the share of <em>their own</em> exchanges coded as confrontational — for every year they held briefings. Dot size scales with that year's sample size (bigger dot = more exchanges), since a rate from a handful of exchanges in a transition year is noisy. Lines don't connect across years a spokesperson wasn't speaking.</span>
+    </p>
+    <div class="chart-tabs" id="sp-main-tabs" style="margin:0.6rem 0 0.8rem;">
+      <button class="chart-tab active" data-mode="activity">Activity by year</button>
+      <button class="chart-tab" data-mode="confrate">Confrontation rate by year</button>
     </div>
+
+    <div class="chart-wrap" style="height:320px;margin-bottom:0.6rem;">
+      <canvas id="sp-chart"></canvas>
+      <canvas id="sp-confrate-chart" style="display:none;"></canvas>
+    </div>
+    <p id="sp-confrate-legend-note" style="display:none;font-size:0.8rem;color:#888;font-family:sans-serif;margin-bottom:1.5rem;">Click a name below the chart to isolate that spokesperson; click again to restore. Hover a point for the exact rate and sample size.</p>
 
     <div class="sp-cards" id="sp-cards"></div>
 
@@ -831,6 +840,7 @@ Promise.all([
   fetch('data/threats_by_country.json').then(r => r.json()),
   fetch('data/spokesperson_by_year.json').then(r => r.json()),
   fetch('data/spokesperson_cards.json').then(r => r.json()),
+  fetch('data/spokesperson_confrate_by_year.json').then(r => r.json()).catch(() => null),
   fetch('data/press_breakdown.json').then(r => r.json()),
   fetch('data/topics.json').then(r => r.json()),
   fetch('data/articles.json').then(r => r.json()),
@@ -849,7 +859,7 @@ Promise.all([
   fetch('data/threats_by_country_year.json').then(r => r.json()).catch(() => null),
   fetch('data/sm_threats_by_country_year.json').then(r => r.json()).catch(() => null),
 ]).then(([countryData, monthlyData, quarterlyData, threatsData, threatsByCountry,
-          spByYear, spCards, pressData, topicsData, articlesData, threatsByMonth,
+          spByYear, spCards, spConfrateByYear, pressData, topicsData, articlesData, threatsByMonth,
           commentaryData, commentaryArticles, smYear, smMonth, smCountry, mfaYM, smYM, recentDaily,
           domYear, domMonth, domYM, threatsByCountryYear, smCountryYear]) => {
   initHeadlines(countryData, monthlyData);
@@ -858,6 +868,8 @@ Promise.all([
   initThreatsChart(threatsData, threatsByMonth, smYear, smMonth, mfaYM, smYM, recentDaily, domYear, domMonth, domYM);
   initThreatsMap(threatsByCountry, smCountry, threatsByCountryYear, smCountryYear);
   initSpChart(spByYear);
+  if (spConfrateByYear) initSpConfrateChart(spConfrateByYear);
+  initSpMainTabs();
   initSpCards(spCards);
   initSpBreakdownChart(spCards);
   initTopicsCharts(topicsData, pressData);
@@ -1792,22 +1804,20 @@ function initThreatsChart(mfaThreats, mfaMonthly, smThreats, smMonthly, mfaYM, s
 
 // ── Spokesperson Chart ────────────────────────────────────────────────────
 
-function initSpChart(spByYear) {
-  const ctx = document.getElementById('sp-chart').getContext('2d');
-  const years = spByYear.years;
-
-  // Dotted lines between years for leadership transitions
-  const SP_TRANSITIONS = [
-    { afterYear: '2002', label: 'Hu Jintao →' },
-    { afterYear: '2012', label: 'Xi Jinping →' },
-  ];
-
-  const spLeaderPlugin = {
+// Dotted vertical lines marking leadership transitions — shared by both the
+// activity bar chart and the confrontation-rate line chart (factory, since
+// each needs its own `years` array closed over for afterDraw's index lookup).
+const SP_TRANSITIONS = [
+  { afterYear: '2002', label: 'Hu Jintao →' },
+  { afterYear: '2012', label: 'Xi Jinping →' },
+];
+function makeSpLeaderPlugin(years) {
+  return {
     id: 'spLeaderLines',
     afterDraw(chart) {
       const { ctx: c, scales: { x, y } } = chart;
       SP_TRANSITIONS.forEach(({ afterYear, label }) => {
-        const idx = years.findIndex(y => String(y) === afterYear);
+        const idx = years.findIndex(yy => String(yy) === afterYear);
         if (idx === -1 || idx === years.length - 1) return;
         const x0 = x.getPixelForValue(idx);
         const x1 = x.getPixelForValue(idx + 1);
@@ -1829,6 +1839,12 @@ function initSpChart(spByYear) {
       });
     }
   };
+}
+
+function initSpChart(spByYear) {
+  const ctx = document.getElementById('sp-chart').getContext('2d');
+  const years = spByYear.years;
+  const spLeaderPlugin = makeSpLeaderPlugin(years);
 
   new Chart(ctx, {
     type: 'bar',
@@ -1870,6 +1886,97 @@ function initSpChart(spByYear) {
   });
 }
 
+// ── "Who speaks for China?" — top-level tab switch (activity bar vs confrate line) ──
+
+function initSpMainTabs() {
+  document.querySelectorAll('#sp-main-tabs .chart-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const mode = btn.dataset.mode;
+      document.querySelectorAll('#sp-main-tabs .chart-tab').forEach(b => b.classList.toggle('active', b === btn));
+      const showConfrate = mode === 'confrate';
+      document.getElementById('sp-chart').style.display = showConfrate ? 'none' : '';
+      document.getElementById('sp-confrate-chart').style.display = showConfrate ? '' : 'none';
+      document.getElementById('sp-tab-note-activity').style.display = showConfrate ? 'none' : '';
+      document.getElementById('sp-tab-note-confrate').style.display = showConfrate ? '' : 'none';
+      document.getElementById('sp-confrate-legend-note').style.display = showConfrate ? '' : 'none';
+    });
+  });
+}
+
+// ── Spokesperson Confrontation-Rate-by-Year Chart (line, one per spokesperson) ──
+//
+// Design notes: up to ~4 spokespeople can be active in a transition year, and
+// tenures range from a few months to a decade, so neither a fixed legend nor
+// end-of-line labels alone read cleanly at every zoom. Approach: (1) lines only
+// draw across years each person actually held briefings — spanGaps is left at
+// its Chart.js default (false), so a null year is a true gap, not a drop to
+// zero; (2) point radius scales with that year's sample size, so a rate from
+// a two-week handover month reads visibly smaller/noisier than a full year;
+// (3) tooltip mode 'index' surfaces every active spokesperson for the hovered
+// year in one box — this is what actually resolves the "up to 4 at once"
+// case, more reliably than trying to trace short overlapping line segments by
+// eye; (4) the bottom legend (click-to-toggle, Chart.js default for line
+// charts) lets you isolate one spokesperson when the transition years get busy.
+function initSpConfrateChart(spConfrateByYear) {
+  const ctx = document.getElementById('sp-confrate-chart').getContext('2d');
+  const years = spConfrateByYear.years;
+  const spLeaderPlugin = makeSpLeaderPlugin(years);
+
+  function pointRadiusFor(nArr) {
+    const maxN = Math.max(1, ...nArr.filter(n => n > 0));
+    return nArr.map(n => n > 0 ? Math.max(2, Math.min(7, 2 + 5 * Math.sqrt(n / maxN))) : 0);
+  }
+
+  new Chart(ctx, {
+    type: 'line',
+    data: {
+      labels: years,
+      datasets: spConfrateByYear.series.map(s => ({
+        label: s.name,
+        data: s.rate,
+        n: s.n,
+        borderColor: s.color,
+        backgroundColor: s.color,
+        pointRadius: pointRadiusFor(s.n),
+        pointHoverRadius: pointRadiusFor(s.n).map(r => r + 2),
+        borderWidth: 2,
+        tension: 0.15,
+        fill: false,
+      }))
+    },
+    plugins: [spLeaderPlugin],
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      plugins: {
+        legend: {
+          display: true,
+          position: 'bottom',
+          labels: { font: { size: 9.5 }, boxWidth: 10, padding: 6 }
+        },
+        tooltip: {
+          mode: 'index',
+          intersect: false,
+          callbacks: {
+            title: ctx => 'Year: ' + ctx[0].label,
+            label: ctx => {
+              if (ctx.raw === null || ctx.raw === undefined) return null;
+              const n = ctx.dataset.n[ctx.dataIndex];
+              return `${ctx.dataset.label}: ${ctx.raw}%  (n=${n})`;
+            },
+            filter: item => item.raw !== null && item.raw !== undefined,
+          }
+        }
+      },
+      scales: {
+        x: { grid: { display: false }, ticks: { font: { size: 11 } } },
+        y: { beginAtZero: true, ticks: { font: { size: 11 }, callback: v => v+'%' },
+             title: { display: true, text: 'Confrontation rate', font: { size: 11 } } }
+      }
+    }
+  });
+}
+
 // ── Spokesperson Cards ────────────────────────────────────────────────────
 
 const CONF_COLORS = {
@@ -1884,14 +1991,27 @@ const CONF_COLORS = {
 // target, not actor); kept only on the geographic map.
 const CONF_KEYS = ['Threat','Active threat','Demand','Urge','Request','Representations'];
 
+function buildTopCountriesRow(c) {
+  const tc = c.top_countries;
+  if (!tc || !tc.length) return '';
+  const items = tc.map(t => `<span class="sp-country-item"><b>${t.name}</b> ${t.pct}%</span>`).join(' · ');
+  return `<div class="sp-bio-field"><span class="sp-bio-label">Mainly talks about</span><span>${items}</span></div>`;
+}
+
 function buildBioDropdown(c) {
   const hasCdbd = c.cdbd_name_zh;
-  if (!hasCdbd && !c.note) return '';
+  const hasCountries = c.top_countries && c.top_countries.length;
+  if (!hasCdbd && !c.note && !hasCountries) return '';
 
   let html = '<div class="sp-note">';
 
   if (c.note) {
     html += `<p style="margin:0 0 0.5rem;">${c.note}</p>`;
+  }
+
+  const topCountriesRow = buildTopCountriesRow(c);
+  if (topCountriesRow) {
+    html += `<div style="margin-top:${c.note ? '0' : '0.3rem'};">${topCountriesRow}</div>`;
   }
 
   if (hasCdbd) {
@@ -1950,7 +2070,7 @@ function initSpCards(cards) {
     div.style.setProperty('--sp-color', c.color);
     const eraBadge = c.era ? `<span class="sp-era">${c.era}</span>` : '';
     const postLine = c.post ? `<div class="sp-post">${c.post}</div>` : '';
-    const hasBio = c.note || c.cdbd_name_zh;
+    const hasBio = c.note || c.cdbd_name_zh || (c.top_countries && c.top_countries.length);
     const noteLine = buildBioDropdown(c);
     const toggle = hasBio ? `<button class="sp-bio-toggle"><span class="arrow">▶</span> Biography</button>` : '';
     const breakdown = buildBreakdownBar(c);
