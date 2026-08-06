@@ -950,6 +950,35 @@ with open(os.path.join(OUT_DIR, "threats_by_country.json"), "w") as f:
     json.dump(threats_by_country, f)
 print(f"  wrote threats_by_country.json ({len(threats_by_country)} countries)")
 
+# ── G2: Threats by country by year (for year slider on confrontation map) ────────
+print("Building threats_by_country_year …")
+threats_by_country_year = {}
+for _, row in conf_rows.iterrows():
+    q_raw = str(row.get("q_loc", ""))
+    if q_raw in ("nan", ""):
+        continue
+    yr = int(row.get("year_clean", 0)) if pd.notna(row.get("year_clean")) else 0
+    if yr == 0:
+        continue
+    for loc in [l.strip() for l in q_raw.split(";") if l.strip() not in ("-", "nan", "")]:
+        iso = CONF_ISO_MAP.get(loc)
+        if not iso:
+            continue
+        if iso not in threats_by_country_year:
+            threats_by_country_year[iso] = {}
+        if yr not in threats_by_country_year[iso]:
+            threats_by_country_year[iso][yr] = {"total": 0}
+            for c in ALL_CONF_COLS:
+                threats_by_country_year[iso][yr][c] = 0
+        threats_by_country_year[iso][yr]["total"] += 1
+        for c in ALL_CONF_COLS:
+            if c in conf_rows.columns and pd.notna(row.get(c)):
+                threats_by_country_year[iso][yr][c] += 1
+
+with open(os.path.join(OUT_DIR, "threats_by_country_year.json"), "w") as f:
+    json.dump(threats_by_country_year, f)
+print(f"  wrote threats_by_country_year.json ({len(threats_by_country_year)} countries)")
+
 # ── H: Commentary comparison (MFA podium vs People's Daily commentariat) ─────────
 # The MFA scheme codes spoken Q&A; the same confrontation categories are applied to
 # official COMMENTARY (People's Daily 钟声/国纪平 in Chinese, "Zhong Sheng" in English) by
@@ -1192,7 +1221,24 @@ for _, r in sm[sm["_conf"]].iterrows():
             rec[c] += 1
 with open(os.path.join(OUT_DIR, "sm_threats_by_country.json"), "w") as fh:
     json.dump(sm_country, fh)
-print(f"  wrote sm_threats_by_year ({len(sm_year)} yrs) / by_month / by_country ({len(sm_country)} countries)")
+# also by target country by year (for year slider on confrontation map)
+sm_country_year = {}
+for _, r in sm[sm["_conf"]].iterrows():
+    iso = CONF_ISO_MAP.get(str(r.get("subject_country", "") or "").strip())
+    if not iso:
+        continue
+    yr = r["_yr"]
+    if iso not in sm_country_year:
+        sm_country_year[iso] = {}
+    if yr not in sm_country_year[iso]:
+        sm_country_year[iso][yr] = {"total": 0, **{c: 0 for c in sm_cats}}
+    sm_country_year[iso][yr]["total"] += 1
+    for c in sm_cats:
+        if pd.notna(r[c]):
+            sm_country_year[iso][yr][c] += 1
+with open(os.path.join(OUT_DIR, "sm_threats_by_country_year.json"), "w") as fh:
+    json.dump(sm_country_year, fh)
+print(f"  wrote sm_threats_by_year ({len(sm_year)} yrs) / by_month / by_country ({len(sm_country)} countries) / by_country_year ({len(sm_country_year)} countries)")
 
 # ── I: Recent daily deep-dive feed (last ~5 weeks, MFA + PD + CD) ───────────────
 # Powers the "Last month" tab on the Confrontation-over-time chart: one bar per day,

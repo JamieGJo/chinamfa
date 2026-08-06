@@ -574,6 +574,15 @@
       <button class="active" data-src="mfa">MFA press conference</button>
       <button data-src="sm">State media commentary</button>
     </div>
+    <div class="map-controls" style="margin-top:0.8rem;">
+      <label>Years 年份:</label>
+      <input type="range" id="threats-year-from" min="2003" max="2026" value="2003" step="1" aria-label="From year">
+      <span id="threats-year-from-display">2003</span>
+      <span class="yr-sep">→</span>
+      <input type="range" id="threats-year-to" min="2003" max="2026" value="2026" step="1" aria-label="To year">
+      <span id="threats-year-to-display">2026</span>
+      <button type="button" id="threats-year-all" class="year-all-btn active">Whole record</button>
+    </div>
     <div class="threats-map-wrap">
       <div class="ttype-panel" id="ttype-panel">
         <div class="ttype-panel-label">Filter by type</div>
@@ -671,7 +680,14 @@
     <div class="sp-cards" id="sp-cards"></div>
 
     <h3 style="margin-top:2rem;font-size:1rem;font-family:sans-serif;color:#1a1a2e;">Confrontation types by spokesperson</h3>
-    <p style="font-size:0.85rem;color:#555;margin-bottom:0.5rem;">Each bar shows the breakdown of confrontation-type exchanges (as a share of all confrontational exchanges) for that spokesperson. Hover for counts.</p>
+    <div class="chart-tabs" id="sp-tabs" style="margin:0.8rem 0;">
+      <button class="chart-tab active" data-mode="share">Share of confrontational exchanges</button>
+      <button class="chart-tab" data-mode="proportion">Proportion of all their responses</button>
+    </div>
+    <p style="font-size:0.85rem;color:#555;margin-bottom:0.5rem;">
+      <span id="sp-share-note">Each bar shows the breakdown of confrontation-type exchanges (as a share of all confrontational exchanges) for that spokesperson. Hover for counts.</span>
+      <span id="sp-proportion-note" style="display:none;">Each bar shows the confrontation rate for that spokesperson — the share of all their exchanges that are coded as confrontational, broken down by type. Non-confrontational exchanges (the majority) are shown in grey.</span>
+    </p>
     <div class="chart-wrap" style="height:420px;">
       <canvas id="sp-breakdown-chart"></canvas>
     </div>
@@ -830,15 +846,17 @@ Promise.all([
   fetch('data/threats_by_year_domestic.json').then(r => r.json()).catch(() => null),
   fetch('data/threats_by_month_domestic.json').then(r => r.json()).catch(() => null),
   fetch('data/threats_by_yearmonth_domestic.json').then(r => r.json()).catch(() => null),
+  fetch('data/threats_by_country_year.json').then(r => r.json()).catch(() => null),
+  fetch('data/sm_threats_by_country_year.json').then(r => r.json()).catch(() => null),
 ]).then(([countryData, monthlyData, quarterlyData, threatsData, threatsByCountry,
           spByYear, spCards, pressData, topicsData, articlesData, threatsByMonth,
           commentaryData, commentaryArticles, smYear, smMonth, smCountry, mfaYM, smYM, recentDaily,
-          domYear, domMonth, domYM]) => {
+          domYear, domMonth, domYM, threatsByCountryYear, smCountryYear]) => {
   initHeadlines(countryData, monthlyData);
   initMap(countryData);
   // [IO-HIDDEN 2026-06-30] initChart(quarterlyData);
   initThreatsChart(threatsData, threatsByMonth, smYear, smMonth, mfaYM, smYM, recentDaily, domYear, domMonth, domYM);
-  initThreatsMap(threatsByCountry, smCountry);
+  initThreatsMap(threatsByCountry, smCountry, threatsByCountryYear, smCountryYear);
   initSpChart(spByYear);
   initSpCards(spCards);
   initSpBreakdownChart(spCards);
@@ -1146,8 +1164,9 @@ function initChart(quarterly) {
 
 // ── Threats Map ──────────────────────────────────────────────────────────
 
-function initThreatsMap(mfaByCountry, smByCountry) {
+function initThreatsMap(mfaByCountry, smByCountry, mfaByCountryYear, smByCountryYear) {
   let byCountry = mfaByCountry;
+  let byCountryYear = mfaByCountryYear || {};
   const tmap = L.map('threats-map', {
     center: [20, 15], zoom: 2, minZoom: 1, maxZoom: 6, worldCopyJump: true
   });
@@ -1159,6 +1178,7 @@ function initThreatsMap(mfaByCountry, smByCountry) {
 
   let currentType = 'total';
   let threatGeoLayer = null;
+  let yearFrom = 2003, yearTo = 2026;
 
   // Colour scales per type — each uses a 5-step sequential blue-to-dark palette
   const COLOR_SCALES = {
@@ -1173,10 +1193,27 @@ function initThreatsMap(mfaByCountry, smByCountry) {
     'China protested':[1,3,   8,   20,  '#f5f5f5','#cccccc','#888888','#555555','#222222'],
   };
 
+  // Aggregate year-level data across a range
+  function getValueForYearRange(iso, type, from, to) {
+    if (!byCountryYear[iso]) return 0;
+    let total = 0;
+    for (let y = from; y <= to; y++) {
+      const yearData = byCountryYear[iso][y];
+      if (yearData) total += (yearData[type] || 0);
+    }
+    return total;
+  }
+
   function getColor(iso, type) {
     if (iso === 'CHN') return '#f0eeea';  // exclude China — it is the speaker
-    const d = byCountry[iso];
-    const val = d ? (d[type] || 0) : 0;
+    // Use year-filtered data if available and not full range
+    let val;
+    if (byCountryYear[iso] && (yearFrom !== 2003 || yearTo !== 2026)) {
+      val = getValueForYearRange(iso, type, yearFrom, yearTo);
+    } else {
+      const d = byCountry[iso];
+      val = d ? (d[type] || 0) : 0;
+    }
     if (!val) return '#f0eeea';
     const s = COLOR_SCALES[type] || COLOR_SCALES.total;
     if (val < s[0]) return s[4];
@@ -1188,8 +1225,6 @@ function initThreatsMap(mfaByCountry, smByCountry) {
 
   function buildTooltip(iso, name, type) {
     if (iso === 'CHN') return `<strong>${name}</strong><br><em>(excluded — speaker country)</em>`;
-    const d = byCountry[iso];
-    if (!d) return `<strong>${name}</strong><br><em>No coded exchanges</em>`;
     const LABELS = {
       total: 'Total (all types)', Threat: 'Threat', 'Active threat': 'Active threat',
       Demand: 'Demand', Urge: 'Urge', Request: 'Request',
@@ -1197,13 +1232,43 @@ function initThreatsMap(mfaByCountry, smByCountry) {
       'China protested': 'Protested',
     };
     let tip = `<strong>${name}</strong>`;
-    if (type === 'total') {
-      tip += `<br>Total: <b>${d.total}</b>`;
-      const parts = ['Threat','Active threat','Demand','Urge','Request','Representations','China attacked','China protested'];
-      parts.forEach(k => { if (d[k]) tip += `<br>${LABELS[k]}: ${d[k]}`; });
+    const yearLabel = yearFrom === yearTo ? ` (${yearFrom})` : ` (${yearFrom}–${yearTo})`;
+
+    // Use year-filtered data if available
+    if (byCountryYear[iso] && (yearFrom !== 2003 || yearTo !== 2026)) {
+      if (type === 'total') {
+        const parts = ['Threat','Active threat','Demand','Urge','Request','Representations','China attacked','China protested'];
+        let total = 0;
+        const counts = {};
+        parts.forEach(k => {
+          const val = getValueForYearRange(iso, k, yearFrom, yearTo);
+          counts[k] = val;
+          total += val;
+        });
+        if (total === 0) return `<strong>${name}</strong><br><em>No coded exchanges${yearLabel}</em>`;
+        tip += `<br>Total${yearLabel}: <b>${total}</b>`;
+        parts.forEach(k => { if (counts[k]) tip += `<br>${LABELS[k]}: ${counts[k]}`; });
+      } else {
+        const val = getValueForYearRange(iso, type, yearFrom, yearTo);
+        tip += `<br>${LABELS[type]}${yearLabel}: <b>${val}</b>`;
+        let total = 0;
+        ['Threat','Active threat','Demand','Urge','Request','Representations','China attacked','China protested'].forEach(k => {
+          total += getValueForYearRange(iso, k, yearFrom, yearTo);
+        });
+        tip += `<br><span style="color:#888;font-size:0.85em">Total all types: ${total}</span>`;
+      }
     } else {
-      tip += `<br>${LABELS[type]}: <b>${d[type] || 0}</b>`;
-      tip += `<br><span style="color:#888;font-size:0.85em">Total all types: ${d.total}</span>`;
+      // Fallback to aggregated data
+      const d = byCountry[iso];
+      if (!d) return `<strong>${name}</strong><br><em>No coded exchanges</em>`;
+      if (type === 'total') {
+        tip += `<br>Total: <b>${d.total}</b>`;
+        const parts = ['Threat','Active threat','Demand','Urge','Request','Representations','China attacked','China protested'];
+        parts.forEach(k => { if (d[k]) tip += `<br>${LABELS[k]}: ${d[k]}`; });
+      } else {
+        tip += `<br>${LABELS[type]}: <b>${d[type] || 0}</b>`;
+        tip += `<br><span style="color:#888;font-size:0.85em">Total all types: ${d.total}</span>`;
+      }
     }
     return tip;
   }
@@ -1258,6 +1323,7 @@ function initThreatsMap(mfaByCountry, smByCountry) {
     btn.addEventListener('click', () => {
       const src = btn.dataset.src;
       byCountry = (src === 'sm') ? (smByCountry || {}) : mfaByCountry;
+      byCountryYear = (src === 'sm') ? (smByCountryYear || {}) : (mfaByCountryYear || {});
       document.querySelectorAll('#map-src-toggle button').forEach(b => b.classList.toggle('active', b === btn));
       document.querySelectorAll('#ttype-panel .ttype-btn').forEach(b => {
         b.style.display = (src === 'sm' && SM_HIDE.includes(b.dataset.type)) ? 'none' : '';
@@ -1269,6 +1335,43 @@ function initThreatsMap(mfaByCountry, smByCountry) {
       }
       restyle();
     });
+  });
+
+  // Year slider controls
+  const threatsYearFrom = document.getElementById('threats-year-from');
+  const threatsYearTo = document.getElementById('threats-year-to');
+  const threatsYearFromDisplay = document.getElementById('threats-year-from-display');
+  const threatsYearToDisplay = document.getElementById('threats-year-to-display');
+  const threatsYearAllBtn = document.getElementById('threats-year-all');
+
+  function syncYearAndRestyle() {
+    let from = parseInt(threatsYearFrom.value);
+    let to = parseInt(threatsYearTo.value);
+    if (from > to) {
+      [from, to] = [to, from];
+      threatsYearFrom.value = from;
+      threatsYearTo.value = to;
+    }
+    yearFrom = from;
+    yearTo = to;
+    threatsYearFromDisplay.textContent = from;
+    threatsYearToDisplay.textContent = to;
+    threatsYearAllBtn.classList.toggle('active', from === 2003 && to === 2026);
+    restyle();
+  }
+
+  threatsYearFrom.addEventListener('input', () => {
+    if (+threatsYearFrom.value > +threatsYearTo.value) threatsYearTo.value = threatsYearFrom.value;
+    syncYearAndRestyle();
+  });
+  threatsYearTo.addEventListener('input', () => {
+    if (+threatsYearTo.value < +threatsYearFrom.value) threatsYearFrom.value = threatsYearTo.value;
+    syncYearAndRestyle();
+  });
+  threatsYearAllBtn.addEventListener('click', () => {
+    threatsYearFrom.value = 2003;
+    threatsYearTo.value = 2026;
+    syncYearAndRestyle();
   });
 }
 
@@ -1878,46 +1981,93 @@ function initSpCards(cards) {
 
 function initSpBreakdownChart(cards) {
   const ctx = document.getElementById('sp-breakdown-chart').getContext('2d');
-  // Only spokespeople with any confrontational exchanges
+  let chart = null;
+  let currentMode = 'share';
   const active = cards.filter(c => c.n_conf > 0);
   const labels = active.map(c => c.name);
 
-  const datasets = CONF_KEYS.map(k => ({
-    label: k,
-    data: active.map(c => {
-      const total = CONF_KEYS.reduce((s, j) => s + ((c.conf_breakdown||{})[j]||0), 0);
-      return total > 0 ? +((c.conf_breakdown[k]||0)/total*100).toFixed(1) : 0;
-    }),
-    backgroundColor: CONF_COLORS[k],
-    stack: 'conf',
-    borderWidth: 0,
-  }));
-
-  new Chart(ctx, {
-    type: 'bar',
-    data: { labels, datasets },
-    options: {
-      indexAxis: 'y',
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 11, padding: 8 } },
-        tooltip: {
-          mode: 'index',
-          callbacks: {
-            title: ctx => ctx[0].label,
-            label: ctx => ctx.raw > 0 ? `${ctx.dataset.label}: ${ctx.raw}%` : null,
-            filter: item => item.raw > 0,
+  function buildDatasets(mode) {
+    if (mode === 'share') {
+      // Share of confrontational exchanges only
+      return CONF_KEYS.map(k => ({
+        label: k,
+        data: active.map(c => {
+          const total = CONF_KEYS.reduce((s, j) => s + ((c.conf_breakdown||{})[j]||0), 0);
+          return total > 0 ? +((c.conf_breakdown[k]||0)/total*100).toFixed(1) : 0;
+        }),
+        backgroundColor: CONF_COLORS[k],
+        stack: 'conf',
+        borderWidth: 0,
+      }));
+    } else {
+      // Proportion of all responses
+      const allConfKeys = [...CONF_KEYS, 'Other'];
+      return allConfKeys.map(k => ({
+        label: k,
+        data: active.map(c => {
+          if (k === 'Other') {
+            const conf_total = CONF_KEYS.reduce((s, j) => s + ((c.conf_breakdown||{})[j]||0), 0);
+            const all_total = c.n_all || c.n_conf; // fallback to n_conf if n_all not available
+            return all_total > 0 ? +((all_total - conf_total) / all_total * 100).toFixed(1) : 0;
+          } else {
+            const all_total = c.n_all || c.n_conf;
+            return all_total > 0 ? +((c.conf_breakdown[k]||0)/all_total*100).toFixed(1) : 0;
           }
-        }
-      },
-      scales: {
-        x: { stacked: true, max: 100, ticks: { callback: v => v+'%', font: { size: 10 } },
-             title: { display: true, text: 'Share of confrontational exchanges (%)', font: { size: 10 } } },
-        y: { stacked: true, ticks: { font: { size: 11 } }, grid: { display: false } }
-      }
+        }),
+        backgroundColor: k === 'Other' ? '#e8e4d8' : CONF_COLORS[k],
+        stack: 'all',
+        borderWidth: 0,
+      }));
     }
+  }
+
+  function renderChart(mode) {
+    const datasets = buildDatasets(mode);
+    const xLabel = mode === 'share'
+      ? 'Share of confrontational exchanges (%)'
+      : 'Proportion of all their responses (%)';
+
+    if (chart) chart.destroy();
+    chart = new Chart(ctx, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        indexAxis: 'y',
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { position: 'bottom', labels: { font: { size: 10 }, boxWidth: 11, padding: 8 } },
+          tooltip: {
+            mode: 'index',
+            callbacks: {
+              title: ctx => ctx[0].label,
+              label: ctx => ctx.raw > 0 ? `${ctx.dataset.label}: ${ctx.raw}%` : null,
+              filter: item => item.raw > 0,
+            }
+          }
+        },
+        scales: {
+          x: { stacked: true, max: 100, ticks: { callback: v => v+'%', font: { size: 10 } },
+               title: { display: true, text: xLabel, font: { size: 10 } } },
+          y: { stacked: true, ticks: { font: { size: 11 } }, grid: { display: false } }
+        }
+      }
+    });
+  }
+
+  // Tab switching
+  document.querySelectorAll('#sp-tabs .chart-tab').forEach(btn => {
+    btn.addEventListener('click', () => {
+      currentMode = btn.dataset.mode;
+      document.querySelectorAll('#sp-tabs .chart-tab').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      document.getElementById('sp-share-note').style.display = currentMode === 'share' ? '' : 'none';
+      document.getElementById('sp-proportion-note').style.display = currentMode === 'proportion' ? '' : 'none';
+      renderChart(currentMode);
+    });
   });
+
+  renderChart('share');
 }
 
 // ── Topics & Press Charts ─────────────────────────────────────────────────
