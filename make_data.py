@@ -927,16 +927,26 @@ CONF_ISO_MAP = {
     'Niger':'NER','Kosovo':'XKX',
 }
 
+# q_loc (NLP entity extraction) is only populated for the original CMFA_v4 corpus
+# (2002–2023) — it is 0% populated on scraped_2024_2026 rows, so without a fallback
+# this map (and its year-sliced sibling) go silently empty from 2024 on. Fix: fall
+# back to the same keyword text-match used for country_counts.json's 2024+ rows
+# (text_country_mentions on question+answer), mapped through CONF_ISO_MAP. (Bug
+# found + fixed 2026-08-06 — the map had nothing after 2023.)
+def row_iso_locs(row):
+    q_raw = str(row.get("q_loc", ""))
+    if q_raw not in ("nan", ""):
+        return [CONF_ISO_MAP[l] for l in
+                (x.strip() for x in q_raw.split(";"))
+                if l not in ("-", "nan", "") and l in CONF_ISO_MAP]
+    # Fallback for rows with no q_loc (scraped 2024+): keyword match on Q+A text
+    text = str(row.get("question", "")) + " " + str(row.get("answer", ""))
+    return [CONF_ISO_MAP[name] for name in text_country_mentions(text) if name in CONF_ISO_MAP]
+
 threats_by_country = {}
 conf_rows = df[df[ALL_CONF_COLS].notna().any(axis=1)]
 for _, row in conf_rows.iterrows():
-    q_raw = str(row.get("q_loc", ""))
-    if q_raw in ("nan", ""):
-        continue
-    for loc in [l.strip() for l in q_raw.split(";") if l.strip() not in ("-", "nan", "")]:
-        iso = CONF_ISO_MAP.get(loc)
-        if not iso:
-            continue
+    for iso in set(row_iso_locs(row)):
         if iso not in threats_by_country:
             threats_by_country[iso] = {"total": 0}
             for c in ALL_CONF_COLS:
@@ -954,16 +964,10 @@ print(f"  wrote threats_by_country.json ({len(threats_by_country)} countries)")
 print("Building threats_by_country_year …")
 threats_by_country_year = {}
 for _, row in conf_rows.iterrows():
-    q_raw = str(row.get("q_loc", ""))
-    if q_raw in ("nan", ""):
-        continue
     yr = int(row.get("year_clean", 0)) if pd.notna(row.get("year_clean")) else 0
     if yr == 0:
         continue
-    for loc in [l.strip() for l in q_raw.split(";") if l.strip() not in ("-", "nan", "")]:
-        iso = CONF_ISO_MAP.get(loc)
-        if not iso:
-            continue
+    for iso in set(row_iso_locs(row)):
         if iso not in threats_by_country_year:
             threats_by_country_year[iso] = {}
         if yr not in threats_by_country_year[iso]:

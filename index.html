@@ -597,11 +597,11 @@
       </div>
       <div id="threats-map" style="flex:1;height:420px;border-radius:4px;border:1px solid #ddd;min-width:0;"></div>
     </div>
-    <p class="map-note" style="margin-top:0.5rem;">Countries are coded from the question text (<em>q_loc</em> field) — they reflect which country the exchange was about, i.e. the target or subject of China's pushback (or, for "Attacked abroad," where the attack occurred), not necessarily who initiated the underlying dispute. The United States and Taiwan account for the largest share by a wide margin.</p>
+    <p class="map-note" style="margin-top:0.5rem;">Countries are coded from the question text (<em>q_loc</em> field) — they reflect which country the exchange was about, i.e. the target or subject of China's pushback (or, for "Attacked abroad," where the attack occurred), not necessarily who initiated the underlying dispute. The United States and Taiwan account for the largest share by a wide margin. Data for 2002–2023 uses NLP entity extraction from the original corpus; 2024–2026 uses keyword matching on question and answer text and is broadly comparable but not strictly equivalent.</p>
     <details class="source-note">
       <summary>About these sources — MFA vs state media 数据来源说明</summary>
       <div class="sn-body">
-        <p><span class="big">MFA press conference</span> — the spokesperson's spoken answers (2003–2026, ~35,000 Q&amp;A exchanges). A country is counted when it is the subject of an exchange in which China issues a threat, demand, urge or representation; target country from the <em>q_loc</em> field.</p>
+        <p><span class="big">MFA press conference</span> — the spokesperson's spoken answers (2003–2026, ~35,000 Q&amp;A exchanges). A country is counted when it is the subject of an exchange in which China issues a threat, demand, urge or representation; target country from the <em>q_loc</em> field (2002–2023) or keyword text-matching on the question+answer (2024–2026, same methodology as the diplomatic-attention map above).</p>
         <p><span class="big">State media commentary</span> — combined People's Daily foreign-affairs columns (钟声, 和音, 国际论坛, 望海楼, 国纪平, plus the English-edition 钟声) and China Daily editorials — the 706 pieces flagged confrontational. A country is counted when it is the <em>subject</em> of such a piece, on the same five acts (threat, active threat, demand, urge, representation; the mild "request" tier is excluded, as in the validated commentary coding, κ ≈ 0.61). Non-country targets (EU, NATO, G7) are omitted from the map.</p>
         <p>The two are <span class="big">not unit-comparable in level</span> — one counts spoken Q&amp;A, the other whole articles — so read each map on its own scale; the comparable signal is the <em>geography</em> of who China pushes back against. "Request", "Attacked abroad" and "Protested" exist only for the MFA record.</p>
       </div>
@@ -2000,17 +2000,18 @@ function initSpBreakdownChart(cards) {
         borderWidth: 0,
       }));
     } else {
-      // Proportion of all responses
+      // Proportion of all responses — denominator is n_total (every exchange,
+      // confrontational or not), not n_conf (confrontational-only; that was the
+      // bug — it made "Other" collapse to ~0 and reproduced the "share" tab).
       const allConfKeys = [...CONF_KEYS, 'Other'];
       return allConfKeys.map(k => ({
         label: k,
         data: active.map(c => {
+          const all_total = c.n_total || 0;
           if (k === 'Other') {
             const conf_total = CONF_KEYS.reduce((s, j) => s + ((c.conf_breakdown||{})[j]||0), 0);
-            const all_total = c.n_all || c.n_conf; // fallback to n_conf if n_all not available
             return all_total > 0 ? +((all_total - conf_total) / all_total * 100).toFixed(1) : 0;
           } else {
-            const all_total = c.n_all || c.n_conf;
             return all_total > 0 ? +((c.conf_breakdown[k]||0)/all_total*100).toFixed(1) : 0;
           }
         }),
